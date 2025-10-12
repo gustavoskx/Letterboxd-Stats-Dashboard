@@ -28,39 +28,11 @@
             // Setters
             set: (key, value) => {
                 state[key] = value;
-                State.save();
             },
 
             // Update multiple values
             update: (updates) => {
                 Object.assign(state, updates);
-                State.save();
-            },
-
-            // Persistence
-            save: () => {
-                // Convert Maps to Objects for serialization
-                const serializableState = {
-                    ...state,
-                    directors: Object.fromEntries(state.directors),
-                    actors: Object.fromEntries(state.actors),
-                    genres: Object.fromEntries(state.genres)
-                };
-                localStorage.setItem('letterboxd-state', JSON.stringify(serializableState));
-            },
-
-            load: () => {
-                const saved = localStorage.getItem('letterboxd-state');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    state = {
-                        ...state,
-                        ...parsed,
-                        directors: new Map(Object.entries(parsed.directors || {})),
-                        actors: new Map(Object.entries(parsed.actors || {})),
-                        genres: new Map(Object.entries(parsed.genres || {}))
-                    };
-                }
             },
 
             // Clear state
@@ -76,7 +48,6 @@
                     selectedPerson: null,
                     selectedPersonType: 'directors'
                 };
-                localStorage.removeItem('letterboxd-state');
             }
         };
     })();
@@ -85,6 +56,16 @@
     // UI MANAGEMENT MODULE
     // ========================================
     const UI = (function() {
+        const originalModalBodyHTML = `
+            <div class="modal-chart-container">
+                <canvas id="modal-chart"></canvas>
+            </div>
+            <div class="modal-details-container">
+                <h3>Detalhes</h3>
+                <div id="modal-chart-details"></div>
+            </div>
+        `;
+
         return {
             // Show/hide containers
             showSetup: () => {
@@ -127,6 +108,9 @@
             // Modal management
             showModal: (title, chartType, chartData) => {
                 const modal = document.getElementById('chart-modal-view');
+                const modalBody = modal.querySelector('.modal-body');
+                modalBody.innerHTML = originalModalBodyHTML;
+
                 const titleEl = document.getElementById('modal-chart-title');
                 const detailsContainer = document.getElementById('modal-chart-details');
 
@@ -338,14 +322,12 @@
             // Render person details
             renderPersonDetails: (name, data) => {
                 const container = document.getElementById('person-details');
-                const movies = State.get('movies');
-                const personMovies = movies.filter(movie => {
-                    if (State.get('selectedPersonType') === 'directors') {
-                        return movie.director === name;
-                    } else {
-                        return movie.cast.includes(name);
-                    }
-                }).sort((a, b) => b.rating - a.rating);
+                const personMovies = (data.movies || []).sort((a, b) => b.rating - a.rating);
+
+                if (personMovies.length === 0) {
+                    container.innerHTML = '<div class="placeholder"><p>Nenhum filme encontrado para esta pessoa.</p></div>';
+                    return;
+                }
 
                 const bestMovie = personMovies[0];
                 const worstMovie = personMovies[personMovies.length - 1];
@@ -602,10 +584,10 @@
                 try {
                     const response = await fetch(url);
                     const data = await response.json();
-                    return data.results[0] || null;
+                    return data.results || [];
                 } catch (error) {
                     console.error('Erro na busca do filme:', error);
-                    return null;
+                    return [];
                 }
             },
 
@@ -650,8 +632,8 @@
 
                 movies.forEach(movie => {
                     // Directors
-                    const directorName = movie.director || '';
-                    if (directorName) {
+                    const directorNames = (movie.director || '').split(', ').filter(name => name);
+                    directorNames.forEach(directorName => {
                         if (!directors.has(directorName)) {
                             directors.set(directorName, {
                                 count: 0,
@@ -666,14 +648,13 @@
                         directorData.count++;
                         directorData.totalRating += movie.rating || 0;
                         directorData.movies.push(movie);
-                        // update first/last by date if available
                         if (movie.dateWatched && new Date(movie.dateWatched) < new Date(directorData.firstMovie.dateWatched || directorData.firstMovie.date)) {
                             directorData.firstMovie = movie;
                         }
                         if (movie.dateWatched && new Date(movie.dateWatched) > new Date(directorData.lastMovie.dateWatched || directorData.lastMovie.date)) {
                             directorData.lastMovie = movie;
                         }
-                    }
+                    });
 
                     // Actors
                     (movie.cast || []).forEach(actorName => {
@@ -831,20 +812,36 @@
                 // Show loading message
                 UI.showLoadingMessage('Processando dados dos filmes...');
 
-                // Sample data
-                const sampleDirectors = ['Christopher Nolan', 'Steven Spielberg', 'Martin Scorsese', 'Quentin Tarantino', 'Ridley Scott', 'David Fincher', 'Clint Eastwood', 'Tim Burton'];
-                const sampleActors = ['Leonardo DiCaprio', 'Tom Hanks', 'Robert De Niro', 'Brad Pitt', 'Morgan Freeman', 'Johnny Depp', 'Denzel Washington', 'Meryl Streep'];
-                const sampleGenres = ['Drama', 'Action', 'Comedy', 'Thriller', 'Sci-Fi', 'Horror', 'Romance', 'Adventure'];
-
-                // Process each movie (add sample/enrichment data)
                 for (let i = 0; i < movies.length; i++) {
                     const movie = movies[i];
-                    
-                    // Add sample/enrichment data if missing
-                    movie.director = movie.director || sampleDirectors[i % sampleDirectors.length];
-                    movie.cast = movie.cast && movie.cast.length > 0 ? movie.cast : sampleActors.slice(0, Math.floor(Math.random() * 3) + 2);
-                    movie.genres = movie.genres && movie.genres.length > 0 ? movie.genres : [sampleGenres[i % sampleGenres.length]];
-                    movie.runtime = movie.runtime || (120 + Math.floor(Math.random() * 60));
+                    UI.updateProgress(i + 1, movies.length, movie.title);
+
+                    try {
+                        const searchResults = await API.searchMovie(movie.title, movie.year);
+                        const bestMatch = searchResults.find(r => r.title.toLowerCase() === movie.title.toLowerCase());
+                        const searchResult = bestMatch || searchResults[0];
+
+                        if (searchResult) {
+                            const details = await API.getMovieDetails(searchResult.id);
+                            if (details) {
+                                // Extract director
+                                const director = details.credits.crew.find(p => p.job === 'Director');
+                                movie.director = director ? director.name : 'N/A';
+
+                                // Extract cast
+                                movie.cast = details.credits.cast.slice(0, 30).map(p => p.name);
+                                
+                                // Extract other details
+                                movie.genres = details.genres.map(g => g.name);
+                                movie.runtime = details.runtime || 0;
+                                movie.posterPath = details.poster_path || '';
+                                movie.overview = details.overview || '';
+                                movie.tmdbId = details.id;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`Erro ao processar o filme ${movie.title}:`, error);
+                    }
 
                     processedMovies.push(movie);
                 }
@@ -1513,16 +1510,7 @@
     const App = (function() {
         return {
             init: () => {
-                // Load saved state
-                State.load();
-
-                // Check if we have data
-                if (State.get('movies').length > 0) {
-                    UI.showMainApp();
-                    App.initialize();
-                } else {
-                    UI.showSetup();
-                }
+                UI.showSetup();
 
                 // Setup event listeners
                 UI.setupForm();
@@ -1538,26 +1526,14 @@
                 
                 // Create all charts
                 console.log('Criando gráficos...');
-                // If there are saved movies but empty indices (e.g., after reload), rebuild them
+                
                 const movies = State.get('movies');
-                const directors = State.get('directors');
-                const actors = State.get('actors');
-                const genres = State.get('genres');
 
                 if (movies && movies.length > 0) {
-                    // If any of the indices are missing or empty, rebuild them
-                    if (!directors || directors.size === 0 || !actors || actors.size === 0 || !genres || genres.size === 0) {
-                        console.log('Rebuild indices from saved movies...');
-                        const indices = Data.buildIndices(movies);
-                        State.update(indices);
-                    }
+                    const indices = Data.buildIndices(movies);
+                    State.update(indices);
 
-                    // If stats are missing or incomplete, recalculate
-                    const stats = State.get('stats');
-                    if (!stats || !stats.totalRuntime || stats.totalRuntime === 0) {
-                        console.log('Recalculating stats from saved movies...');
-                        Data.calculateStats();
-                    }
+                    Data.calculateStats();
                 }
 
                 // Ensure charts are fresh
