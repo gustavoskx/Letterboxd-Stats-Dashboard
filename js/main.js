@@ -4,6 +4,19 @@
 (function() {
     'use strict';
 
+    // Helper to resolve CSS variables to actual values for JS libraries (e.g., Google Charts)
+    const CssVars = {
+        get: (name, fallback = '') => {
+            try {
+                const value = getComputedStyle(document.documentElement).getPropertyValue(name);
+                const trimmed = value ? value.trim() : '';
+                return trimmed || fallback;
+            } catch (e) {
+                return fallback;
+            }
+        }
+    };
+
     // ========================================
     // STATE MANAGEMENT MODULE
     // ========================================
@@ -134,12 +147,12 @@
             showSummaryModal: (title, content) => {
                 const modal = document.getElementById('chart-modal-view');
                 const titleEl = document.getElementById('modal-chart-title');
-                const modalBody = document.querySelector('.modal-body');
+                const modalBody = modal.querySelector('.modal-body');
 
                 titleEl.textContent = title;
-                
-                // Clear any existing chart and show summary content
-                modalBody.innerHTML = `<div class="summary-details-grid">${content}</div>`;
+
+                // Clear any existing chart and show summary content in a scrollable container
+                modalBody.innerHTML = `<div class="summary-details-grid" style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 30px; overflow-y: auto; align-content: start;">${content}</div>`;
                 modal.classList.add('show');
             },
 
@@ -566,7 +579,8 @@
                 if (loader) {
                     loader.remove();
                 }
-            }
+            },
+
         };
     })();
 
@@ -830,7 +844,14 @@
 
                                 // Extract cast
                                 movie.cast = details.credits.cast.slice(0, 30).map(p => p.name);
-                                
+
+                                // Extrair país
+                                if (details.production_countries && details.production_countries.length > 0) {
+                                    movie.country = details.production_countries[0].name;
+                                } else {
+                                    movie.country = 'Desconhecido';
+                                }
+
                                 // Extract other details
                                 movie.genres = details.genres.map(g => g.name);
                                 movie.runtime = details.runtime || 0;
@@ -1591,6 +1612,7 @@
                 return modalConfig;
             },
 
+
             // Destroy all charts
             destroyAll: () => {
                 chartInstances.forEach(chart => chart.destroy());
@@ -1604,7 +1626,7 @@
     // ========================================
     const App = (function() {
         return {
-            init: () => {
+            init: async () => {
                 UI.showSetup();
 
                 // Setup event listeners
@@ -1634,6 +1656,7 @@
                 // Ensure charts are fresh
                 Charts.destroyAll();
                 Charts.createAllCharts();
+                
                 
                 // Show dashboard by default
                 console.log('Mostrando dashboard...');

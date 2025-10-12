@@ -894,6 +894,8 @@ canvas {
     gap: 20px;
     padding: 20px;
     width: 100%;
+    overflow-y: auto;
+    max-height: 100%;
 }
 
 .summary-item {
@@ -901,19 +903,21 @@ canvas {
     padding: 20px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
+    min-height: fit-content;
 }
 
 .summary-item-title {
-    color: var(--secondary-text-color);
-    font-size: 0.9em;
-    margin-bottom: 8px;
-    text-transform: uppercase;
+    color: var(--accent-color);
+    font-size: 0.95em;
+    margin-bottom: 10px;
+    font-weight: 600;
 }
 
 .summary-item-value {
     color: var(--primary-text-color);
     font-size: 1.2em;
     font-weight: 600;
+    line-height: 1.4;
 }
 
 /* Estilo específico para a lista de filmes com nota máxima */
