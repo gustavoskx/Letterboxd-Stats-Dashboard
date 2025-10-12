@@ -1,0 +1,1593 @@
+// Letterboxd Stats Dashboard - Main Application
+// Arquitetura modular em IIFE
+
+(function() {
+    'use strict';
+
+    // ========================================
+    // STATE MANAGEMENT MODULE
+    // ========================================
+    const State = (function() {
+        let state = {
+            tmdbApiKey: null,
+            movies: [],
+            directors: new Map(),
+            actors: new Map(),
+            genres: new Map(),
+            currentView: 'dashboard',
+            selectedMovie: null,
+            selectedPerson: null,
+            selectedPersonType: 'directors'
+        };
+
+        return {
+            // Getters
+            get: (key) => state[key],
+            getAll: () => ({ ...state }),
+
+            // Setters
+            set: (key, value) => {
+                state[key] = value;
+                State.save();
+            },
+
+            // Update multiple values
+            update: (updates) => {
+                Object.assign(state, updates);
+                State.save();
+            },
+
+            // Persistence
+            save: () => {
+                // Convert Maps to Objects for serialization
+                const serializableState = {
+                    ...state,
+                    directors: Object.fromEntries(state.directors),
+                    actors: Object.fromEntries(state.actors),
+                    genres: Object.fromEntries(state.genres)
+                };
+                localStorage.setItem('letterboxd-state', JSON.stringify(serializableState));
+            },
+
+            load: () => {
+                const saved = localStorage.getItem('letterboxd-state');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state = {
+                        ...state,
+                        ...parsed,
+                        directors: new Map(Object.entries(parsed.directors || {})),
+                        actors: new Map(Object.entries(parsed.actors || {})),
+                        genres: new Map(Object.entries(parsed.genres || {}))
+                    };
+                }
+            },
+
+            // Clear state
+            clear: () => {
+                state = {
+                    tmdbApiKey: null,
+                    movies: [],
+                    directors: new Map(),
+                    actors: new Map(),
+                    genres: new Map(),
+                    currentView: 'dashboard',
+                    selectedMovie: null,
+                    selectedPerson: null,
+                    selectedPersonType: 'directors'
+                };
+                localStorage.removeItem('letterboxd-state');
+            }
+        };
+    })();
+
+    // ========================================
+    // UI MANAGEMENT MODULE
+    // ========================================
+    const UI = (function() {
+        return {
+            // Show/hide containers
+            showSetup: () => {
+                document.getElementById('setup-container').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            },
+
+            showMainApp: () => {
+                document.getElementById('setup-container').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+            },
+
+            // Navigation
+            showView: (viewName) => {
+                // Hide all pages
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+
+                // Show selected page
+                const targetPage = document.getElementById(`${viewName}-page`) || 
+                                 document.getElementById(viewName);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
+
+                // Update navigation tabs
+                document.querySelectorAll('.nav-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                
+                const activeTab = document.querySelector(`[data-view="${viewName}"]`);
+                if (activeTab) {
+                    activeTab.classList.add('active');
+                }
+
+                State.set('currentView', viewName);
+            },
+
+            // Modal management
+            showModal: (title, chartType, chartData) => {
+                const modal = document.getElementById('chart-modal-view');
+                const titleEl = document.getElementById('modal-chart-title');
+                const detailsContainer = document.getElementById('modal-chart-details');
+
+                titleEl.textContent = title;
+                modal.classList.add('show');
+
+                // Create chart
+                const canvas = document.getElementById('modal-chart');
+                if (window.modalChart) {
+                    window.modalChart.destroy();
+                }
+                const ctx = canvas.getContext('2d');
+                window.modalChart = new Chart(ctx, chartData);
+
+                // Populate details
+                const detailsHtml = Data.getChartDetails(chartType);
+                detailsContainer.innerHTML = detailsHtml;
+            },
+
+            // Show summary modal (special case for summary chart)
+            showSummaryModal: (title, content) => {
+                const modal = document.getElementById('chart-modal-view');
+                const titleEl = document.getElementById('modal-chart-title');
+                const modalBody = document.querySelector('.modal-body');
+
+                titleEl.textContent = title;
+                
+                // Clear any existing chart and show summary content
+                modalBody.innerHTML = `<div class="summary-modal-content">${content}</div>`;
+                modal.classList.add('show');
+            },
+
+            hideModal: () => {
+                const modal = document.getElementById('chart-modal-view');
+                modal.classList.remove('show');
+            },
+
+            // Setup form
+            setupForm: () => {
+                const form = document.getElementById('setup-form');
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const apiKey = document.getElementById('tmdb-api-key').value;
+                    const fileInput = document.getElementById('csv-file');
+                    
+                    if (!apiKey || !fileInput.files[0]) {
+                        alert('Por favor, preencha todos os campos');
+                        return;
+                    }
+
+                    try {
+                        State.set('tmdbApiKey', apiKey);
+                        await Data.processCSV(fileInput.files[0]);
+                        UI.showMainApp();
+                        App.initialize();
+                    } catch (error) {
+                        alert('Erro ao processar arquivo: ' + error.message);
+                    }
+                });
+            },
+
+            // Navigation setup
+            setupNavigation: () => {
+                document.querySelectorAll('.nav-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const view = tab.getAttribute('data-view');
+                        UI.showView(view);
+                        
+                        if (view === 'my-movies') {
+                            UI.renderMoviesList();
+                        } else if (view === 'people-explorer') {
+                            UI.renderPeopleList();
+                        }
+                    });
+                });
+            },
+
+            // Chart containers setup
+            setupChartContainers: () => {
+                document.querySelectorAll('.chart-container').forEach(container => {
+                    container.addEventListener('click', () => {
+                        const chartType = container.getAttribute('data-chart');
+                        const title = container.querySelector('h3').textContent;
+                        
+                        // Special handling for summary chart (not a Chart.js chart)
+                        if (chartType === 'summary') {
+                            const summaryContent = container.querySelector('.chart-content').innerHTML;
+                            UI.showSummaryModal(title, summaryContent);
+                            return;
+                        }
+                        
+                        // Get chart data from Charts module
+                        const chartData = Charts.getChartData(chartType);
+                        if (chartData) {
+                            UI.showModal(title, chartType, chartData);
+                        } else {
+                            console.warn(`No chart data found for type: ${chartType}`);
+                        }
+                    });
+                });
+            },
+
+            // Modal close setup
+            setupModalClose: () => {
+                document.querySelector('.modal-close').addEventListener('click', UI.hideModal);
+                document.getElementById('chart-modal-view').addEventListener('click', (e) => {
+                    if (e.target.id === 'chart-modal-view') {
+                        UI.hideModal();
+                    }
+                });
+            },
+
+            // Render movies list
+            renderMoviesList: () => {
+                const movies = State.get('movies');
+                const container = document.getElementById('movies-list');
+                
+                container.innerHTML = movies.map((movie, index) => `
+                    <div class="movie-item" data-index="${index}">
+                        <h4>${movie.title}</h4>
+                        <div class="meta">${movie.year} • ${movie.rating}⭐ • ${movie.director}</div>
+                    </div>
+                `).join('');
+
+                // Add click listeners
+                container.querySelectorAll('.movie-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const index = parseInt(item.getAttribute('data-index'));
+                        const movie = movies[index];
+                        
+                        // Update selection
+                        container.querySelectorAll('.movie-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                        
+                        // Show movie details
+                        UI.renderMovieDetails(movie);
+                    });
+                });
+            },
+
+            // Render movie details
+            renderMovieDetails: (movie) => {
+                const container = document.getElementById('movie-details');
+                const posterUrl = movie.posterPath ? 
+                    `https://image.tmdb.org/t/p/w300${movie.posterPath}` : null;
+                
+                container.innerHTML = `
+                    <div class="movie-detail">
+                        <div class="movie-header">
+                            ${posterUrl ? `<img src="${posterUrl}" alt="${movie.title}" class="movie-poster">` : ''}
+                            <div class="movie-info">
+                                <h3>${movie.title}</h3>
+                                <p class="movie-year">(${movie.year})</p>
+                                <p class="movie-rating">Sua nota: ${movie.rating}⭐</p>
+                            </div>
+                        </div>
+                        
+                        <div class="movie-meta">
+                            ${movie.director ? `<p><strong>Diretor:</strong> ${movie.director}</p>` : ''}
+                            ${movie.runtime > 0 ? `<p><strong>Duração:</strong> ${movie.runtime} min</p>` : ''}
+                            ${movie.genres.length > 0 ? `<p><strong>Gêneros:</strong> ${movie.genres.join(', ')}</p>` : ''}
+                            ${movie.cast.length > 0 ? `<p><strong>Elenco:</strong> ${movie.cast.slice(0, 5).join(', ')}${movie.cast.length > 5 ? '...' : ''}</p>` : ''}
+                            <p><strong>Assistido em:</strong> ${movie.dateWatched}</p>
+                            ${movie.overview ? `<div class="movie-overview"><strong>Sinopse:</strong><p>${movie.overview}</p></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            },
+
+            // Render people list
+            renderPeopleList: () => {
+                const type = State.get('selectedPersonType');
+                const peopleMap = State.get(type);
+                const container = document.getElementById('people-list');
+                
+                if (!peopleMap || peopleMap.size === 0) {
+                    container.innerHTML = '<div class="placeholder"><p>Nenhuma pessoa encontrada</p></div>';
+                    return;
+                }
+                
+                const people = Array.from(peopleMap.entries())
+                    .sort((a, b) => b[1].count - a[1].count);
+                
+                container.innerHTML = people.map(([name, data]) => `
+                    <div class="person-item" data-name="${name}">
+                        <h4>${name}</h4>
+                        <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}⭐</div>
+                    </div>
+                `).join('');
+
+                // Add click listeners
+                container.querySelectorAll('.person-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const name = item.getAttribute('data-name');
+                        
+                        // Update selection
+                        container.querySelectorAll('.person-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                        
+                        // Show person details
+                        UI.renderPersonDetails(name, peopleMap.get(name));
+                    });
+                });
+            },
+
+            // Render person details
+            renderPersonDetails: (name, data) => {
+                const container = document.getElementById('person-details');
+                const movies = State.get('movies');
+                const personMovies = movies.filter(movie => {
+                    if (State.get('selectedPersonType') === 'directors') {
+                        return movie.director === name;
+                    } else {
+                        return movie.cast.includes(name);
+                    }
+                }).sort((a, b) => b.rating - a.rating);
+
+                const bestMovie = personMovies[0];
+                const worstMovie = personMovies[personMovies.length - 1];
+
+                // Calculate rating distribution
+                const ratingDistribution = {};
+                personMovies.forEach(movie => {
+                    const rating = Math.floor(movie.rating);
+                    ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
+                });
+
+                container.innerHTML = `
+                    <div class="person-stats">
+                        <h3>${name}</h3>
+                        
+                        <div class="stats-cards">
+                            <div class="stat-card">
+                                <h4>Total de Filmes</h4>
+                                <div class="value">${data.count}</div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Nota Média</h4>
+                                <div class="value">${data.averageRating.toFixed(1)}⭐</div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Primeiro Filme</h4>
+                                <div class="value">${data.firstMovie.year}</div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>Último Filme</h4>
+                                <div class="value">${data.lastMovie.year}</div>
+                            </div>
+                        </div>
+
+                        <div class="best-worst">
+                            <div class="best-worst-item">
+                                <h4>Melhor Filme</h4>
+                                <p>${bestMovie.title} (${bestMovie.year})</p>
+                                <p>${bestMovie.rating}⭐</p>
+                            </div>
+                            <div class="best-worst-item">
+                                <h4>Pior Filme</h4>
+                                <p>${worstMovie.title} (${worstMovie.year})</p>
+                                <p>${worstMovie.rating}⭐</p>
+                            </div>
+                        </div>
+
+                        <div class="mini-chart">
+                            <h4>Distribuição de Notas</h4>
+                            <canvas id="person-rating-chart" width="300" height="150"></canvas>
+                        </div>
+
+                        <div class="filmography">
+                            <h4>Filmografia</h4>
+                            ${personMovies.map(movie => `
+                                <div class="film-item">
+                                    <div>
+                                        <span class="title">${movie.title}</span>
+                                        <span class="year">(${movie.year})</span>
+                                    </div>
+                                    <span class="rating">${movie.rating}⭐</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+
+                // Render mini chart
+                const ctx = document.getElementById('person-rating-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(ratingDistribution).map(r => r + '⭐'),
+                        datasets: [{
+                            label: 'Quantidade',
+                            data: Object.values(ratingDistribution),
+                            backgroundColor: '#667eea',
+                            borderColor: '#764ba2',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+
+            // Setup search functionality
+            setupSearch: () => {
+                // Movie search
+                const movieSearch = document.getElementById('movie-search');
+                if (movieSearch) {
+                    movieSearch.addEventListener('input', (e) => {
+                        const query = e.target.value.toLowerCase();
+                        const movies = State.get('movies');
+                        const filtered = movies.filter(movie => 
+                            movie.title.toLowerCase().includes(query) ||
+                            movie.director.toLowerCase().includes(query) ||
+                            movie.cast.some(actor => actor.toLowerCase().includes(query))
+                        );
+                        
+                        UI.renderFilteredMovies(filtered);
+                    });
+                }
+
+                // People search
+                const peopleSearch = document.getElementById('people-search');
+                if (peopleSearch) {
+                    peopleSearch.addEventListener('input', (e) => {
+                        const query = e.target.value.toLowerCase();
+                        const type = State.get('selectedPersonType');
+                        const peopleMap = State.get(type);
+                        const people = Array.from(peopleMap.entries())
+                            .filter(([name]) => name.toLowerCase().includes(query))
+                            .sort((a, b) => b[1].count - a[1].count);
+                        
+                        UI.renderFilteredPeople(people);
+                    });
+                }
+            },
+
+            // Render filtered movies
+            renderFilteredMovies: (movies) => {
+                const container = document.getElementById('movies-list');
+                container.innerHTML = movies.map((movie, index) => `
+                    <div class="movie-item" data-index="${State.get('movies').indexOf(movie)}">
+                        <h4>${movie.title}</h4>
+                        <div class="meta">${movie.year} • ${movie.rating}⭐ • ${movie.director}</div>
+                    </div>
+                `).join('');
+
+                // Re-add click listeners
+                container.querySelectorAll('.movie-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const index = parseInt(item.getAttribute('data-index'));
+                        const movie = State.get('movies')[index];
+                        
+                        container.querySelectorAll('.movie-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                        
+                        UI.renderMovieDetails(movie);
+                    });
+                });
+            },
+
+            // Render filtered people
+            renderFilteredPeople: (people) => {
+                const container = document.getElementById('people-list');
+                container.innerHTML = people.map(([name, data]) => `
+                    <div class="person-item" data-name="${name}">
+                        <h4>${name}</h4>
+                        <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}⭐</div>
+                    </div>
+                `).join('');
+
+                // Re-add click listeners
+                container.querySelectorAll('.person-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const name = item.getAttribute('data-name');
+                        const type = State.get('selectedPersonType');
+                        const peopleMap = State.get(type);
+                        
+                        container.querySelectorAll('.person-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                        
+                        UI.renderPersonDetails(name, peopleMap.get(name));
+                    });
+                });
+            },
+
+            // Setup people filter
+            setupPeopleFilter: () => {
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const type = btn.getAttribute('data-type');
+                        
+                        // Update active button
+                        document.querySelectorAll('.filter-btn').forEach(b => 
+                            b.classList.remove('active'));
+                        btn.classList.add('active');
+                        
+                        State.set('selectedPersonType', type);
+                        UI.renderPeopleList();
+                    });
+                });
+            },
+
+            // Loading and progress methods
+            showLoadingMessage: (message) => {
+                const setupContainer = document.getElementById('setup-container');
+                const existingLoader = setupContainer.querySelector('.loading-overlay');
+                
+                if (existingLoader) {
+                    existingLoader.remove();
+                }
+
+                const loader = document.createElement('div');
+                loader.className = 'loading-overlay';
+                loader.innerHTML = `
+                    <div class="loading-content">
+                        <div class="loading-spinner"></div>
+                        <h3>${message}</h3>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">Preparando...</p>
+                    </div>
+                `;
+                
+                setupContainer.appendChild(loader);
+            },
+
+            updateProgress: (current, total, movieTitle) => {
+                const progressFill = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
+                
+                if (progressFill && progressText) {
+                    const percentage = (current / total) * 100;
+                    progressFill.style.width = `${percentage}%`;
+                    progressText.textContent = `Processando: ${movieTitle} (${current}/${total})`;
+                }
+            },
+
+            hideLoadingMessage: () => {
+                const loader = document.querySelector('.loading-overlay');
+                if (loader) {
+                    loader.remove();
+                }
+            }
+        };
+    })();
+
+    // ========================================
+    // API MODULE
+    // ========================================
+    const API = (function() {
+        const baseURL = 'https://api.themoviedb.org/3';
+
+        return {
+            searchMovie: async (title, year) => {
+                const apiKey = State.get('tmdbApiKey');
+                const url = `${baseURL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&year=${year}`;
+                
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    return data.results[0] || null;
+                } catch (error) {
+                    console.error('Erro na busca do filme:', error);
+                    return null;
+                }
+            },
+
+            getMovieDetails: async (movieId) => {
+                const apiKey = State.get('tmdbApiKey');
+                const url = `${baseURL}/movie/${movieId}?api_key=${apiKey}&append_to_response=credits`;
+                
+                try {
+                    const response = await fetch(url);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Erro ao obter detalhes do filme:', error);
+                    return null;
+                }
+            }
+        };
+    })();
+
+    // ========================================
+    // DATA PROCESSING MODULE
+    // ========================================
+    const Data = (function() {
+        // Helper function to generate HTML for a list of items
+        const generateListHTML = (items, title) => {
+            if (!items || items.length === 0) return '';
+            return `
+                <div class="detail-item">
+                    <h4>${title}</h4>
+                    <ul>
+                        ${items.map(item => `<li>${item}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        };
+
+        return {
+            // Build indices (directors, actors, genres) from an array of movies
+            buildIndices: (movies) => {
+                const directors = new Map();
+                const actors = new Map();
+                const genres = new Map();
+
+                movies.forEach(movie => {
+                    // Directors
+                    const directorName = movie.director || '';
+                    if (directorName) {
+                        if (!directors.has(directorName)) {
+                            directors.set(directorName, {
+                                count: 0,
+                                totalRating: 0,
+                                movies: [],
+                                firstMovie: movie,
+                                lastMovie: movie
+                            });
+                        }
+
+                        const directorData = directors.get(directorName);
+                        directorData.count++;
+                        directorData.totalRating += movie.rating || 0;
+                        directorData.movies.push(movie);
+                        // update first/last by date if available
+                        if (movie.dateWatched && new Date(movie.dateWatched) < new Date(directorData.firstMovie.dateWatched || directorData.firstMovie.date)) {
+                            directorData.firstMovie = movie;
+                        }
+                        if (movie.dateWatched && new Date(movie.dateWatched) > new Date(directorData.lastMovie.dateWatched || directorData.lastMovie.date)) {
+                            directorData.lastMovie = movie;
+                        }
+                    }
+
+                    // Actors
+                    (movie.cast || []).forEach(actorName => {
+                        if (!actorName) return;
+                        if (!actors.has(actorName)) {
+                            actors.set(actorName, {
+                                count: 0,
+                                totalRating: 0,
+                                movies: [],
+                                firstMovie: movie,
+                                lastMovie: movie
+                            });
+                        }
+
+                        const actorData = actors.get(actorName);
+                        actorData.count++;
+                        actorData.totalRating += movie.rating || 0;
+                        actorData.movies.push(movie);
+                        if (movie.dateWatched && new Date(movie.dateWatched) < new Date(actorData.firstMovie.dateWatched || actorData.firstMovie.date)) {
+                            actorData.firstMovie = movie;
+                        }
+                        if (movie.dateWatched && new Date(movie.dateWatched) > new Date(actorData.lastMovie.dateWatched || actorData.lastMovie.date)) {
+                            actorData.lastMovie = movie;
+                        }
+                    });
+
+                    // Genres
+                    (movie.genres || []).forEach(genre => {
+                        if (!genre) return;
+                        if (!genres.has(genre)) {
+                            genres.set(genre, {
+                                count: 0,
+                                totalRating: 0,
+                                movies: []
+                            });
+                        }
+
+                        const genreData = genres.get(genre);
+                        genreData.count++;
+                        genreData.totalRating += movie.rating || 0;
+                        genreData.movies.push(movie);
+                    });
+                });
+
+                // Calculate averages
+                directors.forEach(data => {
+                    data.averageRating = data.count > 0 ? data.totalRating / data.count : 0;
+                });
+
+                actors.forEach(data => {
+                    data.averageRating = data.count > 0 ? data.totalRating / data.count : 0;
+                });
+
+                genres.forEach(data => {
+                    data.averageRating = data.count > 0 ? data.totalRating / data.count : 0;
+                });
+
+                return { directors, actors, genres };
+            },
+            processCSV: async (file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = async (e) => {
+                        try {
+                            const csv = e.target.result;
+                            const movies = Data.parseCSV(csv);
+                            
+                            // Process movies data
+                            await Data.processMovies(movies);
+                            
+                            // Calculate statistics
+                            Data.calculateStats();
+                            
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+                    reader.readAsText(file);
+                });
+            },
+
+            parseCSV: (csv) => {
+                const lines = csv.split('\n');
+                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+                const movies = [];
+
+                console.log('Headers encontrados:', headers);
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const values = Data.parseCSVLine(line);
+                    const movie = {};
+
+                    headers.forEach((header, index) => {
+                        movie[header.toLowerCase().replace(/\s+/g, '')] = values[index] || '';
+                    });
+
+                    // Parse specific fields for Letterboxd format
+                    movie.rating = parseFloat(movie.rating) || 0;
+                    movie.year = parseInt(movie.year) || 0;
+                    movie.title = movie.name || '';
+                    movie.dateWatched = movie.date || '';
+                    
+                    // Initialize additional fields that will be populated from TMDB
+                    movie.director = '';
+                    movie.cast = [];
+                    movie.genres = [];
+                    movie.runtime = 0;
+                    movie.posterPath = '';
+                    movie.overview = '';
+                    movie.tmdbId = null;
+
+                    movies.push(movie);
+                }
+
+                console.log(`CSV parseado: ${movies.length} filmes encontrados`);
+                console.log('Primeiro filme:', movies[0]);
+
+                return movies;
+            },
+
+            parseCSVLine: (line) => {
+                const values = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        values.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+
+                values.push(current.trim());
+                return values;
+            },
+
+            processMovies: async (movies) => {
+                console.log('Iniciando processamento de', movies.length, 'filmes');
+                
+                const processedMovies = [];
+
+                // Show loading message
+                UI.showLoadingMessage('Processando dados dos filmes...');
+
+                // Sample data
+                const sampleDirectors = ['Christopher Nolan', 'Steven Spielberg', 'Martin Scorsese', 'Quentin Tarantino', 'Ridley Scott', 'David Fincher', 'Clint Eastwood', 'Tim Burton'];
+                const sampleActors = ['Leonardo DiCaprio', 'Tom Hanks', 'Robert De Niro', 'Brad Pitt', 'Morgan Freeman', 'Johnny Depp', 'Denzel Washington', 'Meryl Streep'];
+                const sampleGenres = ['Drama', 'Action', 'Comedy', 'Thriller', 'Sci-Fi', 'Horror', 'Romance', 'Adventure'];
+
+                // Process each movie (add sample/enrichment data)
+                for (let i = 0; i < movies.length; i++) {
+                    const movie = movies[i];
+                    
+                    // Add sample/enrichment data if missing
+                    movie.director = movie.director || sampleDirectors[i % sampleDirectors.length];
+                    movie.cast = movie.cast && movie.cast.length > 0 ? movie.cast : sampleActors.slice(0, Math.floor(Math.random() * 3) + 2);
+                    movie.genres = movie.genres && movie.genres.length > 0 ? movie.genres : [sampleGenres[i % sampleGenres.length]];
+                    movie.runtime = movie.runtime || (120 + Math.floor(Math.random() * 60));
+
+                    processedMovies.push(movie);
+                }
+
+                // Build indices from processed movies
+                const { directors, actors, genres } = Data.buildIndices(processedMovies);
+
+                console.log('Processamento concluído:', {
+                    movies: processedMovies.length,
+                    directors: directors.size,
+                    actors: actors.size,
+                    genres: genres.size
+                });
+
+                // Update state
+                State.update({
+                    movies: processedMovies,
+                    directors,
+                    actors,
+                    genres
+                });
+
+                // Hide loading message
+                UI.hideLoadingMessage();
+                
+                console.log('Estado atualizado, dados disponíveis:', State.get('directors').size);
+            },
+
+            calculateStats: () => {
+                const movies = State.get('movies');
+                if (movies.length === 0) return;
+
+                // Sort movies by date watched
+                const sortedMovies = [...movies].sort((a, b) => 
+                    new Date(a.dateWatched || a.date) - new Date(b.dateWatched || b.date)
+                );
+
+                // Calculate various statistics
+                const totalMovies = movies.length;
+                const averageRating = movies.reduce((sum, m) => sum + m.rating, 0) / totalMovies;
+                const totalRuntime = movies.reduce((sum, m) => sum + (m.runtime || 0), 0);
+                const averageRuntime = totalRuntime / totalMovies;
+
+                // Year range
+                const years = movies.map(m => m.year).filter(y => y > 0);
+                const yearRange = years.length > 0 ? Math.max(...years) - Math.min(...years) : 0;
+
+                State.update({
+                    stats: {
+                        totalMovies,
+                        averageRating,
+                        totalRuntime,
+                        averageRuntime,
+                        yearRange,
+                        sortedMovies
+                    }
+                });
+            },
+
+            getChartDetails: (chartType) => {
+                const movies = State.get('movies');
+                let html = '';
+
+                switch (chartType) {
+                    case 'rating-distribution': {
+                        const ratings = movies.map(m => m.rating);
+                        const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+                        const sortedRatings = [...ratings].sort((a, b) => a - b);
+                        const median = sortedRatings.length % 2 === 0 ? 
+                            (sortedRatings[sortedRatings.length / 2 - 1] + sortedRatings[sortedRatings.length / 2]) / 2 : 
+                            sortedRatings[Math.floor(sortedRatings.length / 2)];
+                        
+                        const modeMap = {};
+                        let maxCount = 0;
+                        let modes = [];
+                        ratings.forEach(rating => {
+                            modeMap[rating] = (modeMap[rating] || 0) + 1;
+                            if (modeMap[rating] > maxCount) {
+                                maxCount = modeMap[rating];
+                                modes = [rating];
+                            } else if (modeMap[rating] === maxCount) {
+                                modes.push(rating);
+                            }
+                        });
+
+                        const stdDev = Math.sqrt(ratings.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / ratings.length);
+
+                        const highestRated = movies.filter(m => m.rating === 5.0).map(m => `${m.title} (${m.year})`);
+                        const lowestRated = movies.filter(m => m.rating === Math.min(...ratings)).map(m => `${m.title} (${m.year})`);
+
+                        html += `<div class="detail-item"><h4>Estatísticas Chave</h4><ul>
+                            <li><strong>Média:</strong> ${mean.toFixed(2)}</li>
+                            <li><strong>Mediana:</strong> ${median.toFixed(1)}</li>
+                            <li><strong>Moda:</strong> ${modes.join(', ')}</li>
+                            <li><strong>Desvio Padrão:</strong> ${stdDev.toFixed(2)}</li>
+                        </ul></div>`;
+                        html += generateListHTML(highestRated, 'Filmes com Nota Máxima (5.0)');
+                        html += generateListHTML(lowestRated, 'Filmes com a Menor Nota');
+                        break;
+                    }
+
+                    case 'directors':
+                    case 'actors': {
+                        const personType = chartType === 'directors' ? 'Diretores' : 'Atores';
+                        const peopleMap = State.get(chartType);
+                        const sortedPeople = Array.from(peopleMap.entries()).sort((a, b) => b[1].count - a[1].count);
+
+                        html += `<div class="detail-item"><h4>Resumo</h4><ul>
+                            <li><strong>Total de ${personType}:</strong> ${peopleMap.size}</li>
+                        </ul></div>`;
+
+                        const listItems = sortedPeople.map(([name, data]) => 
+                            `<li><span>${name}</span><span>${data.count} filmes • ${data.averageRating.toFixed(1)}⭐</span></li>`
+                        );
+                        html += generateListHTML(listItems, `Lista Completa de ${personType}`);
+                        break;
+                    }
+
+                    case 'genres': {
+                        const genresMap = State.get('genres');
+                        const sortedGenres = Array.from(genresMap.entries()).sort((a, b) => b[1].count - a[1].count);
+                        const favoriteGenre = sortedGenres[0][0];
+                        const genreMovies = movies.filter(m => m.genres.includes(favoriteGenre));
+                        const bestInGenre = genreMovies.reduce((best, movie) => movie.rating > best.rating ? movie : best, genreMovies[0]);
+                        const worstInGenre = genreMovies.reduce((worst, movie) => movie.rating < worst.rating ? movie : worst, genreMovies[0]);
+
+                        html += `<div class="detail-item"><h4>Gênero Favorito</h4><ul>
+                            <li><strong>${favoriteGenre}</strong> (${sortedGenres[0][1].count} filmes)</li>
+                        </ul></div>`;
+                        html += `<div class="detail-item"><h4>Melhor & Pior de ${favoriteGenre}</h4><ul>
+                            <li><strong>Melhor:</strong> ${bestInGenre.title} (${bestInGenre.rating}⭐)</li>
+                            <li><strong>Pior:</strong> ${worstInGenre.title} (${worstInGenre.rating}⭐)</li>
+                        </ul></div>`;
+                        
+                        const avgRatingByGenre = sortedGenres.map(([name, data]) => 
+                            `<li><span>${name}</span><span>${data.averageRating.toFixed(1)}⭐</span></li>`
+                        );
+                        html += generateListHTML(avgRatingByGenre, 'Nota Média por Gênero');
+                        break;
+                    }
+
+                    case 'rating-by-year': {
+                        const yearData = {};
+                        movies.forEach(movie => {
+                            if (movie.year > 0) {
+                                if (!yearData[movie.year]) {
+                                    yearData[movie.year] = { total: 0, count: 0, movies: [] };
+                                }
+                                yearData[movie.year].total += movie.rating;
+                                yearData[movie.year].count++;
+                                yearData[movie.year].movies.push(movie);
+                            }
+                        });
+
+                        const yearAverages = Object.entries(yearData).map(([year, data]) => ({
+                            year: parseInt(year),
+                            avg: data.total / data.count,
+                            movies: data.movies
+                        }));
+
+                        const bestYear = yearAverages.reduce((best, year) => year.avg > best.avg ? year : best, { avg: 0 });
+                        const worstYear = yearAverages.reduce((worst, year) => year.avg < worst.avg ? year : worst, { avg: 6 });
+
+                        html += `<div class="detail-item"><h4>Melhor Ano</h4><ul>
+                            <li><strong>${bestYear.year}</strong> (Média ${bestYear.avg.toFixed(2)}⭐)</li>
+                            ${bestYear.movies.slice(0, 3).map(m => `<li>- ${m.title} (${m.rating}⭐)</li>`).join('')}
+                        </ul></div>`;
+                        html += `<div class="detail-item"><h4>Pior Ano</h4><ul>
+                            <li><strong>${worstYear.year}</strong> (Média ${worstYear.avg.toFixed(2)}⭐)</li>
+                        </ul></div>`;
+
+                        const tableItems = yearAverages.sort((a, b) => b.year - a.year).map(y => 
+                            `<li><span>${y.year}</span><span>${y.avg.toFixed(2)}⭐</span></li>`
+                        );
+                        html += generateListHTML(tableItems, 'Tabela de Dados (Ano | Média)');
+                        break;
+                    }
+
+                    case 'runtime': {
+                        const moviesWithRuntime = movies.filter(m => m.runtime > 0);
+                        const totalRuntime = moviesWithRuntime.reduce((sum, m) => sum + m.runtime, 0);
+                        const avgRuntime = totalRuntime / moviesWithRuntime.length;
+                        const longestMovie = moviesWithRuntime.reduce((longest, movie) => movie.runtime > longest.runtime ? movie : longest, { runtime: 0 });
+                        const shortestMovie = moviesWithRuntime.reduce((shortest, movie) => movie.runtime < shortest.runtime ? movie : shortest, { runtime: Infinity });
+
+                        html += `<div class="detail-item"><h4>Estatísticas de Duração</h4><ul>
+                            <li><strong>Média:</strong> ${Math.round(avgRuntime)} min (${Math.floor(avgRuntime / 60)}h ${Math.round(avgRuntime % 60)}m)</li>
+                        </ul></div>`;
+                        html += `<div class="detail-item"><h4>Extremos</h4><ul>
+                            <li><strong>Mais Longo:</strong> ${longestMovie.title} (${longestMovie.runtime} min)</li>
+                            <li><strong>Mais Curto:</strong> ${shortestMovie.title} (${shortestMovie.runtime} min)</li>
+                        </ul></div>`;
+                        break;
+                    }
+
+                    default:
+                        html = '<p>Nenhum detalhe disponível para este gráfico.</p>';
+                }
+
+                return html;
+            }
+        };
+    })();
+
+    // ========================================
+    // CHARTS MODULE
+    // ========================================
+    const Charts = (function() {
+        const chartInstances = new Map();
+
+        return {
+            // Create all dashboard charts
+            createAllCharts: () => {
+                Charts.createSummaryChart();
+                Charts.createDirectorsChart();
+                Charts.createGenresChart();
+                Charts.createRatingDistributionChart();
+                Charts.createRatingByYearChart();
+                Charts.createMoviesByMonthChart();
+                Charts.createRatingVsYearChart();
+                Charts.createActorsChart();
+                Charts.createRuntimeChart();
+            },
+
+            // Summary chart (cards)
+            createSummaryChart: () => {
+                const movies = State.get('movies');
+                const stats = State.get('stats');
+                
+                if (!stats) return;
+
+                const container = document.getElementById('summary-chart');
+                container.innerHTML = `
+                    <div class="summary-card">
+                        <h4>Total de Filmes</h4>
+                        <div class="value">${stats.totalMovies}</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Nota Média</h4>
+                        <div class="value">${stats.averageRating.toFixed(1)}⭐</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Tempo Total</h4>
+                        <div class="value">${Math.round(stats.totalRuntime / 60)}h</div>
+                    </div>
+                    <div class="summary-card">
+                        <h4>Anos de Filmes</h4>
+                        <div class="value">${stats.yearRange}</div>
+                    </div>
+                `;
+            },
+
+            // Directors chart
+            createDirectorsChart: () => {
+                const directors = State.get('directors');
+                console.log('Tentando criar gráfico de diretores, dados:', directors);
+                
+                if (!directors || directors.size === 0) {
+                    console.log('Sem dados de diretores para criar gráfico');
+                    return;
+                }
+
+                const topDirectors = Array.from(directors.entries())
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .slice(0, 10);
+
+                console.log('Top diretores para gráfico:', topDirectors);
+
+                const ctx = document.getElementById('directors-chart').getContext('2d');
+                chartInstances.set('directors', new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: topDirectors.map(([name]) => name),
+                        datasets: [{
+                            label: 'Filmes Assistidos',
+                            data: topDirectors.map(([, data]) => data.count),
+                            backgroundColor: '#667eea',
+                            borderColor: '#764ba2',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                }));
+            },
+
+            // Genres chart
+            createGenresChart: () => {
+                const genres = State.get('genres');
+                console.log('Tentando criar gráfico de gêneros, dados:', genres);
+                
+                if (!genres || genres.size === 0) {
+                    console.log('Sem dados de gêneros para criar gráfico');
+                    return;
+                }
+
+                const topGenres = Array.from(genres.entries())
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .slice(0, 8);
+
+                console.log('Top gêneros para gráfico:', topGenres);
+
+                const ctx = document.getElementById('genres-chart').getContext('2d');
+                chartInstances.set('genres', new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: topGenres.map(([name]) => name),
+                        datasets: [{
+                            data: topGenres.map(([, data]) => data.count),
+                            backgroundColor: [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c',
+                                '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                }));
+            },
+
+             // Rating distribution chart
+             createRatingDistributionChart: () => {
+                 const movies = State.get('movies');
+                 const distribution = {};
+
+                 movies.forEach(movie => {
+                     const rating = movie.rating.toFixed(1); // Keep decimal places
+                     distribution[rating] = (distribution[rating] || 0) + 1;
+                 });
+
+                 // Sort ratings properly (0.5, 1.0, 1.5, ..., 5.0)
+                 const sortedRatings = Object.keys(distribution)
+                     .map(r => parseFloat(r))
+                     .sort((a, b) => a - b);
+
+                 const ctx = document.getElementById('rating-distribution-chart').getContext('2d');
+                 chartInstances.set('rating-distribution', new Chart(ctx, {
+                     type: 'bar',
+                     data: {
+                         labels: sortedRatings.map(r => r.toFixed(1) + '⭐'),
+                         datasets: [{
+                             label: 'Quantidade',
+                             data: sortedRatings.map(r => distribution[r.toFixed(1)]),
+                             backgroundColor: '#667eea',
+                             borderColor: '#764ba2',
+                             borderWidth: 1
+                         }]
+                     },
+                     options: {
+                         responsive: true,
+                         scales: {
+                             y: {
+                                 beginAtZero: true
+                             }
+                         }
+                     }
+                 }));
+             },
+
+            // Rating by year chart
+            createRatingByYearChart: () => {
+                const movies = State.get('movies');
+                const yearData = {};
+
+                movies.forEach(movie => {
+                    if (movie.year > 0) {
+                        if (!yearData[movie.year]) {
+                            yearData[movie.year] = { total: 0, count: 0 };
+                        }
+                        yearData[movie.year].total += movie.rating;
+                        yearData[movie.year].count++;
+                    }
+                });
+
+                const years = Object.keys(yearData).sort((a, b) => a - b);
+                const averages = years.map(year => 
+                    yearData[year].total / yearData[year].count
+                );
+
+                const ctx = document.getElementById('rating-by-year-chart').getContext('2d');
+                chartInstances.set('rating-by-year', new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: years,
+                        datasets: [{
+                            label: 'Nota Média',
+                            data: averages,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 5
+                            }
+                        }
+                    }
+                }));
+            },
+
+             // Movies by month chart
+             createMoviesByMonthChart: () => {
+                 const movies = State.get('movies');
+                 const monthData = {};
+
+                 movies.forEach(movie => {
+                     const date = new Date(movie.dateWatched || movie.date);
+                     if (!isNaN(date.getTime())) {
+                         const month = date.getMonth();
+                         monthData[month] = (monthData[month] || 0) + 1;
+                     }
+                 });
+
+                 const monthNames = [
+                     'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+                 ];
+
+                 const ctx = document.getElementById('movies-by-month-chart').getContext('2d');
+                 chartInstances.set('movies-by-month', new Chart(ctx, {
+                     type: 'line',
+                     data: {
+                         labels: monthNames,
+                         datasets: [{
+                             label: 'Filmes Assistidos',
+                             data: monthNames.map((_, index) => monthData[index] || 0),
+                             borderColor: '#667eea',
+                             backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                             tension: 0.4
+                         }]
+                     },
+                     options: {
+                         responsive: true,
+                         scales: {
+                             y: {
+                                 beginAtZero: true
+                             }
+                         }
+                     }
+                 }));
+             },
+
+            // Rating vs year scatter plot
+            createRatingVsYearChart: () => {
+                const movies = State.get('movies');
+                const data = movies
+                    .filter(m => m.year > 0)
+                    .map(m => ({ x: m.year, y: m.rating }));
+
+                const ctx = document.getElementById('rating-vs-year-chart').getContext('2d');
+                chartInstances.set('rating-vs-year', new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Filmes',
+                            data: data,
+                            backgroundColor: '#667eea',
+                            borderColor: '#764ba2'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Ano de Lançamento'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Sua Nota'
+                                },
+                                beginAtZero: true,
+                                max: 5
+                            }
+                        }
+                    }
+                }));
+            },
+
+            // Actors chart
+            createActorsChart: () => {
+                const actors = State.get('actors');
+                console.log('Tentando criar gráfico de atores, dados:', actors);
+                
+                if (!actors || actors.size === 0) {
+                    console.log('Sem dados de atores para criar gráfico');
+                    return;
+                }
+
+                const topActors = Array.from(actors.entries())
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .slice(0, 10);
+
+                console.log('Top atores para gráfico:', topActors);
+
+                 const ctx = document.getElementById('actors-chart').getContext('2d');
+                 chartInstances.set('actors', new Chart(ctx, {
+                     type: 'bar',
+                     data: {
+                         labels: topActors.map(([name]) => name),
+                         datasets: [{
+                             label: 'Filmes Assistidos',
+                             data: topActors.map(([, data]) => data.count),
+                             backgroundColor: '#667eea',
+                             borderColor: '#764ba2',
+                             borderWidth: 1
+                         }]
+                     },
+                     options: {
+                         responsive: true,
+                         indexAxis: 'y',
+                         scales: {
+                             x: {
+                                 beginAtZero: true
+                             }
+                         }
+                     }
+                 }));
+             },
+
+            // Runtime chart
+            createRuntimeChart: () => {
+                const movies = State.get('movies');
+                const runtimeRanges = {
+                    '0-90': 0,
+                    '90-120': 0,
+                    '120-150': 0,
+                    '150-180': 0,
+                    '180+': 0
+                };
+
+                let moviesWithRuntime = 0;
+                movies.forEach(movie => {
+                    const runtime = parseInt(movie.runtime);
+                    if (runtime && runtime > 0) {
+                        moviesWithRuntime++;
+                        if (runtime <= 90) runtimeRanges['0-90']++;
+                        else if (runtime <= 120) runtimeRanges['90-120']++;
+                        else if (runtime <= 150) runtimeRanges['120-150']++;
+                        else if (runtime <= 180) runtimeRanges['150-180']++;
+                        else runtimeRanges['180+']++;
+                    }
+                });
+
+                // If no runtime data available, show a message
+                if (moviesWithRuntime === 0) {
+                    const ctx = document.getElementById('runtime-chart').getContext('2d');
+                    chartInstances.set('runtime', new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Dados não disponíveis'],
+                            datasets: [{
+                                data: [1],
+                                backgroundColor: ['#e0e0e0'],
+                                borderColor: ['#ccc'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return 'Dados de duração não disponíveis';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }));
+                    return;
+                }
+
+                const ctx = document.getElementById('runtime-chart').getContext('2d');
+                chartInstances.set('runtime', new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(runtimeRanges),
+                        datasets: [{
+                            data: Object.values(runtimeRanges),
+                            backgroundColor: [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                }));
+            },
+
+            // Get chart data for modal
+            getChartData: (chartType) => {
+                const chart = chartInstances.get(chartType);
+                if (!chart) return null;
+
+                // Get the original chart configuration
+                const originalConfig = chart.config;
+                
+                // Create a new configuration for modal display
+                const modalConfig = {
+                    type: originalConfig.type,
+                    data: {
+                        labels: [...originalConfig.data.labels],
+                        datasets: originalConfig.data.datasets.map(dataset => ({
+                            ...dataset,
+                            data: [...dataset.data]
+                        }))
+                    },
+                    options: {
+                        ...originalConfig.options,
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: {
+                            ...originalConfig.options.plugins,
+                            legend: {
+                                ...originalConfig.options.plugins?.legend,
+                                display: true
+                            }
+                        }
+                    }
+                };
+
+                return modalConfig;
+            },
+
+            // Destroy all charts
+            destroyAll: () => {
+                chartInstances.forEach(chart => chart.destroy());
+                chartInstances.clear();
+            }
+        };
+    })();
+
+    // ========================================
+    // MAIN APP MODULE
+    // ========================================
+    const App = (function() {
+        return {
+            init: () => {
+                // Load saved state
+                State.load();
+
+                // Check if we have data
+                if (State.get('movies').length > 0) {
+                    UI.showMainApp();
+                    App.initialize();
+                } else {
+                    UI.showSetup();
+                }
+
+                // Setup event listeners
+                UI.setupForm();
+                UI.setupNavigation();
+                UI.setupChartContainers();
+                UI.setupModalClose();
+                UI.setupSearch();
+                UI.setupPeopleFilter();
+            },
+
+            initialize: () => {
+                console.log('Inicializando aplicação...');
+                
+                // Create all charts
+                console.log('Criando gráficos...');
+                // If there are saved movies but empty indices (e.g., after reload), rebuild them
+                const movies = State.get('movies');
+                const directors = State.get('directors');
+                const actors = State.get('actors');
+                const genres = State.get('genres');
+
+                if (movies && movies.length > 0) {
+                    // If any of the indices are missing or empty, rebuild them
+                    if (!directors || directors.size === 0 || !actors || actors.size === 0 || !genres || genres.size === 0) {
+                        console.log('Rebuild indices from saved movies...');
+                        const indices = Data.buildIndices(movies);
+                        State.update(indices);
+                    }
+
+                    // If stats are missing or incomplete, recalculate
+                    const stats = State.get('stats');
+                    if (!stats || !stats.totalRuntime || stats.totalRuntime === 0) {
+                        console.log('Recalculating stats from saved movies...');
+                        Data.calculateStats();
+                    }
+                }
+
+                // Ensure charts are fresh
+                Charts.destroyAll();
+                Charts.createAllCharts();
+                
+                // Show dashboard by default
+                console.log('Mostrando dashboard...');
+                UI.showView('dashboard');
+                
+                console.log('Aplicação inicializada!');
+            }
+        };
+    })();
+
+    // ========================================
+    // INITIALIZE APPLICATION
+    // ========================================
+    document.addEventListener('DOMContentLoaded', () => {
+        App.init();
+    });
+
+    // Expose modules for debugging (optional)
+    window.LetterboxdApp = {
+        State,
+        UI,
+        API,
+        Data,
+        Charts,
+        App
+    };
+
+})();

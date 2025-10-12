@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letterboxd Stats Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Setup Container -->
+    <div id="setup-container" class="container">
+        <div class="setup-card">
+            <h1>🎬 Letterboxd Stats Dashboard</h1>
+            <p>Analise suas estatísticas de filmes do Letterboxd</p>
+            
+            <form id="setup-form">
+                <div class="form-group">
+                    <label for="tmdb-api-key">Chave da API do TMDB:</label>
+                    <input type="text" id="tmdb-api-key" placeholder="Sua chave da API do TMDB" required>
+                    <small>Obtenha sua chave gratuita em <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org</a></small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="csv-file">Arquivo ratings.csv:</label>
+                    <input type="file" id="csv-file" accept=".csv" required>
+                    <small>Exporte seus dados do Letterboxd em formato CSV</small>
+                </div>
+                
+                <button type="submit" class="btn-primary">Analisar Dados</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🎬 Meus Filmes</h1>
+                <nav class="nav-tabs">
+                    <button class="nav-tab active" data-view="dashboard">Dashboard</button>
+                    <button class="nav-tab" data-view="my-movies">Meus Filmes</button>
+                    <button class="nav-tab" data-view="people-explorer">Diretores & Atores</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Dashboard Page -->
+        <main id="dashboard" class="page active">
+            <div class="page-header">
+                <h2>📊 Dashboard de Estatísticas</h2>
+            </div>
+            
+            <div class="dashboard-grid">
+                <!-- Resumo -->
+                <div class="chart-container" data-chart="summary">
+                    <div class="chart-header">
+                        <h3>📈 Resumo Geral</h3>
+                    </div>
+                    <div class="chart-content" id="summary-chart"></div>
+                </div>
+
+                <!-- Diretores Mais Assistidos -->
+                <div class="chart-container" data-chart="directors">
+                    <div class="chart-header">
+                        <h3>🎬 Diretores Mais Assistidos</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="directors-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top Gêneros -->
+                <div class="chart-container" data-chart="genres">
+                    <div class="chart-header">
+                        <h3>🎭 Top Gêneros</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="genres-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Distribuição de Notas -->
+                <div class="chart-container" data-chart="rating-distribution">
+                    <div class="chart-header">
+                        <h3>⭐ Distribuição de Notas</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="rating-distribution-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Média de Nota por Ano -->
+                <div class="chart-container" data-chart="rating-by-year">
+                    <div class="chart-header">
+                        <h3>📅 Média de Nota por Ano</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="rating-by-year-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Contagem por Mês -->
+                <div class="chart-container" data-chart="movies-by-month">
+                    <div class="chart-header">
+                        <h3>📆 Contagem por Mês</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="movies-by-month-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Nota vs Ano -->
+                <div class="chart-container" data-chart="rating-vs-year">
+                    <div class="chart-header">
+                        <h3>📊 Nota vs Ano de Lançamento</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="rating-vs-year-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top Atores -->
+                <div class="chart-container" data-chart="actors">
+                    <div class="chart-header">
+                        <h3>🎭 Top Atores</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="actors-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Duração -->
+                <div class="chart-container" data-chart="runtime">
+                    <div class="chart-header">
+                        <h3>⏱️ Duração dos Filmes</h3>
+                    </div>
+                    <div class="chart-content">
+                        <canvas id="runtime-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Meus Filmes Page -->
+        <section id="my-movies-page" class="page">
+            <div class="page-header">
+                <h2>🎬 Meus Filmes</h2>
+                <div class="search-container">
+                    <input type="text" id="movie-search" placeholder="Buscar filmes...">
+                </div>
+            </div>
+            
+            <div class="two-panel-layout">
+                <div class="left-panel">
+                    <div class="movies-list" id="movies-list">
+                        <!-- Lista de filmes será populada dinamicamente -->
+                    </div>
+                </div>
+                
+                <div class="right-panel">
+                    <div class="movie-details" id="movie-details">
+                        <div class="placeholder">
+                            <p>Selecione um filme para ver os detalhes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- People Explorer Page -->
+        <section id="people-explorer-page" class="page">
+            <div class="page-header">
+                <h2>👥 Diretores & Atores</h2>
+                <div class="people-filter">
+                    <button class="filter-btn active" data-type="directors">Diretores</button>
+                    <button class="filter-btn" data-type="actors">Atores</button>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="people-search" placeholder="Buscar pessoas...">
+                </div>
+            </div>
+            
+            <div class="two-panel-layout">
+                <div class="left-panel">
+                    <div class="people-list" id="people-list">
+                        <!-- Lista de pessoas será populada dinamicamente -->
+                    </div>
+                </div>
+                
+                <div class="right-panel">
+                    <div class="person-details" id="person-details">
+                        <div class="placeholder">
+                            <p>Selecione uma pessoa para ver suas estatísticas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Chart Modal -->
+    <div id="chart-modal-view" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-chart-title"></h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-chart-container">
+                    <canvas id="modal-chart"></canvas>
+                </div>
+                <div class="modal-details-container">
+                    <h3>Detalhes</h3>
+                    <div id="modal-chart-details"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
