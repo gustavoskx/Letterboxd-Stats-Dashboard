@@ -131,99 +131,15 @@
             },
 
             // Show summary modal (special case for summary chart)
-            showSummaryModal: (title) => {
+            showSummaryModal: (title, content) => {
                 const modal = document.getElementById('chart-modal-view');
                 const titleEl = document.getElementById('modal-chart-title');
                 const modalBody = document.querySelector('.modal-body');
-                const movies = State.get('movies');
-
-                if (movies.length === 0) {
-                    modalBody.innerHTML = '<p>Não há dados de filmes para exibir.</p>';
-                    modal.classList.add('show');
-                    return;
-                }
-
-                // --- Cálculos das Estatísticas ---
-
-                // 1. Filme mais antigo e mais novo
-                const moviesWithYear = movies.filter(m => m.year > 0);
-                const oldestMovie = moviesWithYear.reduce((min, m) => m.year < min.year ? m : min, moviesWithYear[0]);
-                const newestMovie = moviesWithYear.reduce((max, m) => m.year > max.year ? m : max, moviesWithYear[0]);
-
-                // 2. Filme mais longo e mais curto
-                const moviesWithRuntime = movies.filter(m => m.runtime > 0);
-                const longestMovie = moviesWithRuntime.reduce((max, m) => m.runtime > max.runtime ? m : max, moviesWithRuntime[0]);
-                const shortestMovie = moviesWithRuntime.reduce((min, m) => m.runtime < min.runtime ? m : min, moviesWithRuntime[0]);
-
-                // 3. Diretor e Ator mais frequente
-                const directors = State.get('directors');
-                const actors = State.get('actors');
-                const mostFrequentDirector = Array.from(directors.entries()).sort((a, b) => b[1].count - a[1].count)[0];
-                const mostFrequentActor = Array.from(actors.entries()).sort((a, b) => b[1].count - a[1].count)[0];
-
-                // 4. Gênero mais assistido
-                const genres = State.get('genres');
-                const mostWatchedGenre = Array.from(genres.entries()).sort((a, b) => b[1].count - a[1].count)[0];
-
-                // 5. Filmes com nota máxima
-                const topRatedMovies = movies.filter(m => m.rating === 5.0).slice(0, 5);
-
-                // --- Geração do HTML ---
-
-                const content = `
-                    <div class="summary-modal-content">
-                        <div class="summary-section">
-                            <h3>Recordes</h3>
-                            <div class="summary-detail-item">
-                                <h4>Mais Antigo</h4>
-                                <p>${oldestMovie.title} (${oldestMovie.year})</p>
-                            </div>
-                            <div class="summary-detail-item">
-                                <h4>Mais Novo</h4>
-                                <p>${newestMovie.title} (${newestMovie.year})</p>
-                            </div>
-                            <div class="summary-detail-item">
-                                <h4>Mais Longo</h4>
-                                <p>${longestMovie.title} (${longestMovie.runtime} min)</p>
-                            </div>
-                            <div class="summary-detail-item">
-                                <h4>Mais Curto</h4>
-                                <p>${shortestMovie.title} (${shortestMovie.runtime} min)</p>
-                            </div>
-                        </div>
-
-                        <div class="summary-section">
-                            <h3>Pessoas Favoritas</h3>
-                            <div class="summary-detail-item">
-                                <h4>Diretor Mais Visto</h4>
-                                <p>${mostFrequentDirector[0]} (${mostFrequentDirector[1].count} filmes)</p>
-                            </div>
-                            <div class="summary-detail-item">
-                                <h4>Ator Mais Visto</h4>
-                                <p>${mostFrequentActor[0]} (${mostFrequentActor[1].count} filmes)</p>
-                            </div>
-                             <div class="summary-detail-item">
-                                <h4>Gênero Favorito</h4>
-                                <p>${mostWatchedGenre[0]} (${mostWatchedGenre[1].count} filmes)</p>
-                            </div>
-                        </div>
-
-                        <div class="summary-section">
-                            <h3>Hall da Fama (Nota 5.0)</h3>
-                            ${topRatedMovies.length > 0 ? 
-                                topRatedMovies.map(m => `
-                                    <div class="summary-detail-item">
-                                        <p>${m.title} (${m.year})</p>
-                                    </div>
-                                `).join('') : 
-                                '<p>Nenhum filme com nota máxima.</p>'
-                            }
-                        </div>
-                    </div>
-                `;
 
                 titleEl.textContent = title;
-                modalBody.innerHTML = content;
+                
+                // Clear any existing chart and show summary content
+                modalBody.innerHTML = `<div class="summary-modal-content">${content}</div>`;
                 modal.classList.add('show');
             },
 
@@ -268,8 +184,6 @@
                             UI.renderMoviesList();
                         } else if (view === 'people-explorer') {
                             UI.renderPeopleList();
-                        } else if (view === 'world-map') {
-                            Charts.createWorldMapChart();
                         }
                     });
                 });
@@ -284,7 +198,8 @@
                         
                         // Special handling for summary chart (not a Chart.js chart)
                         if (chartType === 'summary') {
-                            UI.showSummaryModal(title);
+                            const summaryContent = container.querySelector('.chart-content').innerHTML;
+                            UI.showSummaryModal(title, summaryContent);
                             return;
                         }
                         
@@ -857,7 +772,6 @@
                     movie.posterPath = '';
                     movie.overview = '';
                     movie.tmdbId = null;
-                    movie.country = '';
 
                     movies.push(movie);
                 }
@@ -905,8 +819,8 @@
                     try {
                         const searchResults = await API.searchMovie(movie.title, movie.year);
                         const bestMatch = searchResults.find(r => r.title.toLowerCase() === movie.title.toLowerCase());
+                        const searchResult = bestMatch || searchResults[0];
 
-                        const searchResult = bestMatch;
                         if (searchResult) {
                             const details = await API.getMovieDetails(searchResult.id);
                             if (details) {
@@ -923,7 +837,6 @@
                                 movie.posterPath = details.poster_path || '';
                                 movie.overview = details.overview || '';
                                 movie.tmdbId = details.id;
-                                movie.country = details.production_countries && details.production_countries.length > 0 ? details.production_countries[0].name : 'Desconhecido';
                             }
                         }
                     } catch (error) {
@@ -1151,7 +1064,6 @@
                 Charts.createRatingVsYearChart();
                 Charts.createActorsChart();
                 Charts.createRuntimeChart();
-                Charts.createWorldMapChart();
             },
 
             // Summary chart (cards)
@@ -1180,46 +1092,6 @@
                         <div class="value">${stats.yearRange}</div>
                     </div>
                 `;
-            },
-
-            // World Map Chart
-            createWorldMapChart: () => {
-                google.charts.load('current', { 'packages':['geochart'] });
-                google.charts.setOnLoadCallback(drawRegionsMap);
-
-                function drawRegionsMap() {
-                    const movies = State.get('movies');
-                    const countryCounts = movies.reduce((acc, movie) => {
-                        if (movie.country && movie.country !== 'Desconhecido') {
-                            acc[movie.country] = (acc[movie.country] || 0) + 1;
-                        }
-                        return acc;
-                    }, {});
-
-                    const dataArray = [['País', 'Filmes']];
-                    for (const country in countryCounts) {
-                        dataArray.push([country, countryCounts[country]]);
-                    }
-
-                    const data = google.visualization.arrayToDataTable(dataArray);
-
-                    const options = {
-                        backgroundColor: '#1E1E1E',
-                        colorAxis: { 
-                            colors: ['#2a3a5a', '#007BFF'],
-                            logScale: true 
-                        },
-                        datalessRegionColor: '#3a3a3a',
-                        defaultColor: '#1E1E1E',
-                        legend: 'none',
-                        keepAspectRatio: true,
-                        magnifyingGlass: { enable: true, zoomFactor: 7.5 },
-                        tooltip: { textStyle: { color: '#E0E0E0' }, showColorCode: true }
-                    };
-
-                    const chart = new google.visualization.GeoChart(document.getElementById('map-container'));
-                    chart.draw(data, options);
-                }
             },
 
             // Directors chart
@@ -1321,7 +1193,7 @@
                  chartInstances.set('rating-distribution', new Chart(ctx, {
                      type: 'bar',
                      data: {
-                         labels: sortedRatings.map(r => r.toFixed(1)),
+                         labels: sortedRatings.map(r => r.toFixed(1) + ''),
                          datasets: [{
                              label: 'Quantidade',
                              data: sortedRatings.map(r => distribution[r.toFixed(1)]),
