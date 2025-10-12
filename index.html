@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Letterboxd Stats Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
     <!-- Setup Container -->
     <div id="setup-container" class="container">
         <div class="setup-card">
-            <h1>🎬 Letterboxd Stats Dashboard</h1>
+            <h1>Letterboxd Stats Dashboard</h1>
             <p>Analise suas estatísticas de filmes do Letterboxd</p>
             
             <form id="setup-form">
@@ -37,11 +41,12 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1>🎬 Meus Filmes</h1>
+                <h1>Meus Filmes</h1>
                 <nav class="nav-tabs">
                     <button class="nav-tab active" data-view="dashboard">Dashboard</button>
                     <button class="nav-tab" data-view="my-movies">Meus Filmes</button>
                     <button class="nav-tab" data-view="people-explorer">Diretores & Atores</button>
+                    <button class="nav-tab" data-view="world-map">Mapa-Múndi</button>
                 </nav>
             </div>
         </header>
@@ -49,14 +54,14 @@
         <!-- Dashboard Page -->
         <main id="dashboard" class="page active">
             <div class="page-header">
-                <h2>📊 Dashboard de Estatísticas</h2>
+                <h2>Dashboard de Estatísticas</h2>
             </div>
             
             <div class="dashboard-grid">
                 <!-- Resumo -->
                 <div class="chart-container" data-chart="summary">
                     <div class="chart-header">
-                        <h3>📈 Resumo Geral</h3>
+                        <h3>Resumo Geral</h3>
                     </div>
                     <div class="chart-content" id="summary-chart"></div>
                 </div>
@@ -64,7 +69,7 @@
                 <!-- Diretores Mais Assistidos -->
                 <div class="chart-container" data-chart="directors">
                     <div class="chart-header">
-                        <h3>🎬 Diretores Mais Assistidos</h3>
+                        <h3>Diretores Mais Assistidos</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="directors-chart"></canvas>
@@ -74,7 +79,7 @@
                 <!-- Top Gêneros -->
                 <div class="chart-container" data-chart="genres">
                     <div class="chart-header">
-                        <h3>🎭 Top Gêneros</h3>
+                        <h3>Top Gêneros</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="genres-chart"></canvas>
@@ -84,7 +89,7 @@
                 <!-- Distribuição de Notas -->
                 <div class="chart-container" data-chart="rating-distribution">
                     <div class="chart-header">
-                        <h3>⭐ Distribuição de Notas</h3>
+                        <h3>Distribuição de Notas</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="rating-distribution-chart"></canvas>
@@ -94,7 +99,7 @@
                 <!-- Média de Nota por Ano -->
                 <div class="chart-container" data-chart="rating-by-year">
                     <div class="chart-header">
-                        <h3>📅 Média de Nota por Ano</h3>
+                        <h3>Média de Nota por Ano</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="rating-by-year-chart"></canvas>
@@ -104,7 +109,7 @@
                 <!-- Contagem por Mês -->
                 <div class="chart-container" data-chart="movies-by-month">
                     <div class="chart-header">
-                        <h3>📆 Contagem por Mês</h3>
+                        <h3>Contagem por Mês</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="movies-by-month-chart"></canvas>
@@ -114,7 +119,7 @@
                 <!-- Nota vs Ano -->
                 <div class="chart-container" data-chart="rating-vs-year">
                     <div class="chart-header">
-                        <h3>📊 Nota vs Ano de Lançamento</h3>
+                        <h3>Nota vs Ano de Lançamento</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="rating-vs-year-chart"></canvas>
@@ -124,7 +129,7 @@
                 <!-- Top Atores -->
                 <div class="chart-container" data-chart="actors">
                     <div class="chart-header">
-                        <h3>🎭 Top Atores</h3>
+                        <h3>Top Atores</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="actors-chart"></canvas>
@@ -134,7 +139,7 @@
                 <!-- Duração -->
                 <div class="chart-container" data-chart="runtime">
                     <div class="chart-header">
-                        <h3>⏱️ Duração dos Filmes</h3>
+                        <h3>Duração dos Filmes</h3>
                     </div>
                     <div class="chart-content">
                         <canvas id="runtime-chart"></canvas>
@@ -146,7 +151,7 @@
         <!-- Meus Filmes Page -->
         <section id="my-movies-page" class="page">
             <div class="page-header">
-                <h2>🎬 Meus Filmes</h2>
+                <h2>Meus Filmes</h2>
                 <div class="search-container">
                     <input type="text" id="movie-search" placeholder="Buscar filmes...">
                 </div>
@@ -172,7 +177,7 @@
         <!-- People Explorer Page -->
         <section id="people-explorer-page" class="page">
             <div class="page-header">
-                <h2>👥 Diretores & Atores</h2>
+                <h2>Diretores & Atores</h2>
                 <div class="people-filter">
                     <button class="filter-btn active" data-type="directors">Diretores</button>
                     <button class="filter-btn" data-type="actors">Atores</button>
@@ -197,6 +202,14 @@
                     </div>
                 </div>
             </div>
+        </section>
+
+        <!-- World Map Page -->
+        <section id="world-map-page" class="page">
+            <div class="page-header">
+                <h2>Mapa-Múndi Cinematográfico</h2>
+            </div>
+            <div id="map-container" style="width: 100%; height: 600px;"></div>
         </section>
     </div>
 
