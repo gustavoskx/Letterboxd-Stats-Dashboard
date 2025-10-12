@@ -887,3 +887,50 @@ canvas {
         transform: translateY(0);
     }
 }
+
+.summary-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    width: 100%;
+}
+
+.summary-item {
+    background-color: var(--background-color); /* Um tom mais escuro que a superfície */
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.summary-item-title {
+    color: var(--secondary-text-color);
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.summary-item-value {
+    color: var(--primary-text-color);
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+/* Estilo específico para a lista de filmes com nota máxima */
+.summary-item-value ul {
+    list-style: none;
+    padding: 0;
+    font-size: 1em;
+    font-weight: normal;
+}
+
+.summary-item-value li {
+    margin-top: 5px;
+}
+
+.person-stats h3 {
+    font-size: 1.8em;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}

@@ -139,7 +139,7 @@
                 titleEl.textContent = title;
                 
                 // Clear any existing chart and show summary content
-                modalBody.innerHTML = `<div class="summary-modal-content">${content}</div>`;
+                modalBody.innerHTML = `<div class="summary-details-grid">${content}</div>`;
                 modal.classList.add('show');
             },
 
@@ -198,8 +198,8 @@
                         
                         // Special handling for summary chart (not a Chart.js chart)
                         if (chartType === 'summary') {
-                            const summaryContent = container.querySelector('.chart-content').innerHTML;
-                            UI.showSummaryModal(title, summaryContent);
+                            const summaryDetails = Data.getChartDetails('summary');
+                            UI.showSummaryModal(title, summaryDetails);
                             return;
                         }
                         
@@ -906,6 +906,101 @@
                 let html = '';
 
                 switch (chartType) {
+                    case 'summary': {
+                        const stats = State.get('stats');
+                        const movies = State.get('movies');
+                        if (!stats || !movies || movies.length === 0) return '<p>Estatísticas não disponíveis.</p>';
+
+                        const { totalMovies, averageRating, totalRuntime, sortedMovies } = stats;
+                        
+                        const firstMovie = sortedMovies[0];
+                        const lastMovie = sortedMovies[sortedMovies.length - 1];
+                        
+                        const ratings = movies.map(m => m.rating);
+                        const maxRating = Math.max(...ratings);
+                        const minRating = Math.min(...ratings);
+
+                        const highestRated = movies.filter(m => m.rating === maxRating);
+                        const lowestRated = movies.filter(m => m.rating === minRating);
+
+                        let summaryHtml = '';
+
+                        // Total de Filmes
+                        summaryHtml += `
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Total de Filmes</h4>
+                                <p class="summary-item-value">${totalMovies}</p>
+                            </div>
+                        `;
+
+                        // Nota Média
+                        summaryHtml += `
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Nota Média</h4>
+                                <p class="summary-item-value">${averageRating.toFixed(2)}</p>
+                            </div>
+                        `;
+
+                        // Tempo Total Assistido
+                        summaryHtml += `
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Tempo Total Assistido</h4>
+                                <p class="summary-item-value">${Math.floor(totalRuntime / 60)}h ${totalRuntime % 60}m</p>
+                            </div>
+                        `;
+
+                        // Primeiro Filme
+                        if (firstMovie) {
+                            summaryHtml += `
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Primeiro Filme</h4>
+                                    <p class="summary-item-value">${firstMovie.title} (${firstMovie.year}) - ${firstMovie.dateWatched}</p>
+                                </div>
+                            `;
+                        }
+
+                        // Último Filme
+                        if (lastMovie) {
+                            summaryHtml += `
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Último Filme</h4>
+                                    <p class="summary-item-value">${lastMovie.title} (${lastMovie.year}) - ${lastMovie.dateWatched}</p>
+                                </div>
+                            `;
+                        }
+
+                        // Melhor(es) Filme(s)
+                        if (highestRated.length > 0) {
+                            summaryHtml += `
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Melhor(es) Filme(s) (${maxRating.toFixed(1)})</h4>
+                                    <div class="summary-item-value">
+                                        <ul>
+                                            ${highestRated.map(m => `<li>${m.title}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        // Pior(es) Filme(s)
+                        if (lowestRated.length > 0) {
+                             summaryHtml += `
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Pior(es) Filme(s) (${minRating.toFixed(1)})</h4>
+                                    <div class="summary-item-value">
+                                        <ul>
+                                            ${lowestRated.map(m => `<li>${m.title}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        html = summaryHtml;
+                        
+                        break;
+                    }
                     case 'rating-distribution': {
                         const ratings = movies.map(m => m.rating);
                         const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
