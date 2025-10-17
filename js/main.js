@@ -1166,6 +1166,21 @@
     const Charts = (function() {
         const chartInstances = new Map();
 
+        // Helper function to generate a color based on rating
+        const getRatingColor = (rating) => {
+            // Scale rating from 0.5-5 to a 0-1 value
+            const scaledRating = (rating - 0.5) / 4.5;
+            // Interpolate between a light blue and a dark blue
+            const startColor = [102, 126, 234]; // --primary-color-light
+            const endColor = [118, 75, 162];     // --primary-color-dark
+            
+            const r = Math.round(startColor[0] + (endColor[0] - startColor[0]) * scaledRating);
+            const g = Math.round(startColor[1] + (endColor[1] - startColor[1]) * scaledRating);
+            const b = Math.round(startColor[2] + (endColor[2] - startColor[2]) * scaledRating);
+
+            return `rgb(${r}, ${g}, ${b})`;
+        };
+
         return {
             // Create all dashboard charts
             createAllCharts: () => {
@@ -1182,9 +1197,7 @@
 
             // Summary chart (cards)
             createSummaryChart: () => {
-                const movies = State.get('movies');
                 const stats = State.get('stats');
-                
                 if (!stats) return;
 
                 const container = document.getElementById('summary-chart');
@@ -1211,18 +1224,11 @@
             // Directors chart
             createDirectorsChart: () => {
                 const directors = State.get('directors');
-                console.log('Tentando criar gráfico de diretores, dados:', directors);
-                
-                if (!directors || directors.size === 0) {
-                    console.log('Sem dados de diretores para criar gráfico');
-                    return;
-                }
+                if (!directors || directors.size === 0) return;
 
                 const topDirectors = Array.from(directors.entries())
                     .sort((a, b) => b[1].count - a[1].count)
                     .slice(0, 10);
-
-                console.log('Top diretores para gráfico:', topDirectors);
 
                 const ctx = document.getElementById('directors-chart').getContext('2d');
                 chartInstances.set('directors', new Chart(ctx, {
@@ -1232,16 +1238,21 @@
                         datasets: [{
                             label: 'Filmes Assistidos',
                             data: topDirectors.map(([, data]) => data.count),
-                            backgroundColor: '#667eea',
-                            borderColor: '#764ba2',
+                            backgroundColor: topDirectors.map(([, data]) => getRatingColor(data.averageRating)),
                             borderWidth: 1
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         scales: {
-                            y: {
+                            x: {
                                 beginAtZero: true
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
                             }
                         }
                     }
@@ -1251,37 +1262,29 @@
             // Genres chart
             createGenresChart: () => {
                 const genres = State.get('genres');
-                console.log('Tentando criar gráfico de gêneros, dados:', genres);
-                
-                if (!genres || genres.size === 0) {
-                    console.log('Sem dados de gêneros para criar gráfico');
-                    return;
-                }
+                if (!genres || genres.size === 0) return;
 
                 const topGenres = Array.from(genres.entries())
                     .sort((a, b) => b[1].count - a[1].count)
-                    .slice(0, 8);
-
-                console.log('Top gêneros para gráfico:', topGenres);
+                    .slice(0, 10);
 
                 const ctx = document.getElementById('genres-chart').getContext('2d');
                 chartInstances.set('genres', new Chart(ctx, {
-                    type: 'doughnut',
+                    type: 'bar',
                     data: {
                         labels: topGenres.map(([name]) => name),
                         datasets: [{
+                            label: 'Contagem de Filmes',
                             data: topGenres.map(([, data]) => data.count),
-                            backgroundColor: [
-                                '#667eea', '#764ba2', '#f093fb', '#f5576c',
-                                '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
-                            ]
+                            backgroundColor: '#4facfe'
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                display: false
                             }
                         }
                     }
@@ -1291,14 +1294,15 @@
              // Rating distribution chart
              createRatingDistributionChart: () => {
                  const movies = State.get('movies');
-                 const distribution = {};
+                 const stats = State.get('stats');
+                 if (!stats) return;
 
+                 const distribution = {};
                  movies.forEach(movie => {
-                     const rating = movie.rating.toFixed(1); // Keep decimal places
+                     const rating = movie.rating.toFixed(1);
                      distribution[rating] = (distribution[rating] || 0) + 1;
                  });
 
-                 // Sort ratings properly (0.5, 1.0, 1.5, ..., 5.0)
                  const sortedRatings = Object.keys(distribution)
                      .map(r => parseFloat(r))
                      .sort((a, b) => a - b);
@@ -1307,13 +1311,11 @@
                  chartInstances.set('rating-distribution', new Chart(ctx, {
                      type: 'bar',
                      data: {
-                         labels: sortedRatings.map(r => r.toFixed(1) + ''),
+                         labels: sortedRatings.map(r => r.toFixed(1)),
                          datasets: [{
                              label: 'Quantidade',
                              data: sortedRatings.map(r => distribution[r.toFixed(1)]),
-                             backgroundColor: '#667eea',
-                             borderColor: '#764ba2',
-                             borderWidth: 1
+                             backgroundColor: '#667eea'
                          }]
                      },
                      options: {
@@ -1321,6 +1323,25 @@
                          scales: {
                              y: {
                                  beginAtZero: true
+                             }
+                         },
+                         plugins: {
+                             annotation: {
+                                 annotations: {
+                                     line1: {
+                                         type: 'line',
+                                         xMin: stats.averageRating,
+                                         xMax: stats.averageRating,
+                                         borderColor: '#f5576c',
+                                         borderWidth: 2,
+                                         borderDash: [6, 6],
+                                         label: {
+                                             content: `Média: ${stats.averageRating.toFixed(2)}`,
+                                             enabled: true,
+                                             position: 'end'
+                                         }
+                                     }
+                                 }
                              }
                          }
                      }
@@ -1343,9 +1364,8 @@
                 });
 
                 const years = Object.keys(yearData).sort((a, b) => a - b);
-                const averages = years.map(year => 
-                    yearData[year].total / yearData[year].count
-                );
+                const averages = years.map(year => yearData[year].total / yearData[year].count);
+                const counts = years.map(year => yearData[year].count);
 
                 const ctx = document.getElementById('rating-by-year-chart').getContext('2d');
                 chartInstances.set('rating-by-year', new Chart(ctx, {
@@ -1357,7 +1377,9 @@
                             data: averages,
                             borderColor: '#667eea',
                             backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4
+                            tension: 0.4,
+                            pointRadius: counts.map(c => 2 + Math.log(c + 1) * 2),
+                            pointHoverRadius: counts.map(c => 4 + Math.log(c + 1) * 2)
                         }]
                     },
                     options: {
@@ -1428,8 +1450,7 @@
                         datasets: [{
                             label: 'Filmes',
                             data: data,
-                            backgroundColor: '#667eea',
-                            borderColor: '#764ba2'
+                            backgroundColor: 'rgba(102, 126, 234, 0.4)'
                         }]
                     },
                     options: {
@@ -1457,18 +1478,11 @@
             // Actors chart
             createActorsChart: () => {
                 const actors = State.get('actors');
-                console.log('Tentando criar gráfico de atores, dados:', actors);
-                
-                if (!actors || actors.size === 0) {
-                    console.log('Sem dados de atores para criar gráfico');
-                    return;
-                }
+                if (!actors || actors.size === 0) return;
 
                 const topActors = Array.from(actors.entries())
                     .sort((a, b) => b[1].count - a[1].count)
                     .slice(0, 10);
-
-                console.log('Top atores para gráfico:', topActors);
 
                  const ctx = document.getElementById('actors-chart').getContext('2d');
                  chartInstances.set('actors', new Chart(ctx, {
@@ -1478,8 +1492,7 @@
                          datasets: [{
                              label: 'Filmes Assistidos',
                              data: topActors.map(([, data]) => data.count),
-                             backgroundColor: '#667eea',
-                             borderColor: '#764ba2',
+                             backgroundColor: topActors.map(([, data]) => getRatingColor(data.averageRating)),
                              borderWidth: 1
                          }]
                      },
@@ -1490,7 +1503,12 @@
                              x: {
                                  beginAtZero: true
                              }
-                         }
+                         },
+                         plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
                      }
                  }));
              },
@@ -1499,11 +1517,11 @@
             createRuntimeChart: () => {
                 const movies = State.get('movies');
                 const runtimeRanges = {
-                    '0-90': 0,
-                    '90-120': 0,
-                    '120-150': 0,
-                    '150-180': 0,
-                    '180+': 0
+                    '< 90m': 0,
+                    '90-120m': 0,
+                    '120-150m': 0,
+                    '150-180m': 0,
+                    '> 180m': 0
                 };
 
                 let moviesWithRuntime = 0;
@@ -1511,64 +1529,32 @@
                     const runtime = parseInt(movie.runtime);
                     if (runtime && runtime > 0) {
                         moviesWithRuntime++;
-                        if (runtime <= 90) runtimeRanges['0-90']++;
-                        else if (runtime <= 120) runtimeRanges['90-120']++;
-                        else if (runtime <= 150) runtimeRanges['120-150']++;
-                        else if (runtime <= 180) runtimeRanges['150-180']++;
-                        else runtimeRanges['180+']++;
+                        if (runtime < 90) runtimeRanges['< 90m']++;
+                        else if (runtime <= 120) runtimeRanges['90-120m']++;
+                        else if (runtime <= 150) runtimeRanges['120-150m']++;
+                        else if (runtime <= 180) runtimeRanges['150-180m']++;
+                        else runtimeRanges['> 180m']++;
                     }
                 });
 
-                // If no runtime data available, show a message
-                if (moviesWithRuntime === 0) {
-                    const ctx = document.getElementById('runtime-chart').getContext('2d');
-                    chartInstances.set('runtime', new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Dados não disponíveis'],
-                            datasets: [{
-                                data: [1],
-                                backgroundColor: ['#e0e0e0'],
-                                borderColor: ['#ccc'],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            return 'Dados de duração não disponíveis';
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }));
-                    return;
-                }
+                if (moviesWithRuntime === 0) return; // Don't render if no data
 
                 const ctx = document.getElementById('runtime-chart').getContext('2d');
                 chartInstances.set('runtime', new Chart(ctx, {
-                    type: 'pie',
+                    type: 'bar',
                     data: {
                         labels: Object.keys(runtimeRanges),
                         datasets: [{
+                            label: 'Contagem de Filmes',
                             data: Object.values(runtimeRanges),
-                            backgroundColor: [
-                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'
-                            ]
+                            backgroundColor: '#43e97b'
                         }]
                     },
                     options: {
                         responsive: true,
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                display: false
                             }
                         }
                     }
@@ -1580,10 +1566,8 @@
                 const chart = chartInstances.get(chartType);
                 if (!chart) return null;
 
-                // Get the original chart configuration
                 const originalConfig = chart.config;
                 
-                // Create a new configuration for modal display
                 const modalConfig = {
                     type: originalConfig.type,
                     data: {
