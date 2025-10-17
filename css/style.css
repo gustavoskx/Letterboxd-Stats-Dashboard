@@ -167,6 +167,10 @@ body {
     color: var(--accent-color);
 }
 
+.nav-tab:not(.active):hover {
+    transform: scale(1.05);
+}
+
 .nav-tab.active {
     background-color: var(--accent-color);
     border-color: transparent;
@@ -219,8 +223,8 @@ body {
 }
 
 .chart-container:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transform: translateY(-8px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
     border-color: var(--accent-color);
 }
 
@@ -308,6 +312,9 @@ canvas {
     cursor: pointer;
     transition: all 0.3s ease;
     border-left: 4px solid transparent;
+    /* Animation */
+    opacity: 0;
+    animation: item-fade-in 0.4s ease forwards;
 }
 
 .movie-item:hover,
@@ -565,7 +572,9 @@ canvas {
 
 /* Modal */
 .modal {
-    display: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: fixed;
     z-index: 1000;
     left: 0;
@@ -574,12 +583,15 @@ canvas {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
+    /* Animation */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    opacity: 1;
+    visibility: visible;
 }
 
 .modal-content {
@@ -594,6 +606,15 @@ canvas {
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
+    /* Animation */
+    transform: scale(0.95);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: scale(1);
+    opacity: 1;
 }
 
 .modal-header {
@@ -878,6 +899,17 @@ canvas {
 }
 
 @keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes item-fade-in {
     from {
         opacity: 0;
         transform: translateY(20px);

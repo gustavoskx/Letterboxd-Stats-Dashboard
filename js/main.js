@@ -243,7 +243,7 @@
                 const container = document.getElementById('movies-list');
                 
                 container.innerHTML = movies.map((movie, index) => `
-                    <div class="movie-item" data-index="${index}">
+                    <div class="movie-item" data-index="${index}" style="animation-delay: ${index * 50}ms">
                         <h4>${movie.title}</h4>
                         <div class="meta">${movie.year} • ${movie.rating} • ${movie.director}</div>
                     </div>
@@ -309,8 +309,8 @@
                 const people = Array.from(peopleMap.entries())
                     .sort((a, b) => b[1].count - a[1].count);
                 
-                container.innerHTML = people.map(([name, data]) => `
-                    <div class="person-item" data-name="${name}">
+                container.innerHTML = people.map(([name, data], index) => `
+                    <div class="person-item" data-name="${name}" style="animation-delay: ${index * 50}ms">
                         <h4>${name}</h4>
                         <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
                     </div>
@@ -474,7 +474,7 @@
             renderFilteredMovies: (movies) => {
                 const container = document.getElementById('movies-list');
                 container.innerHTML = movies.map((movie, index) => `
-                    <div class="movie-item" data-index="${State.get('movies').indexOf(movie)}">
+                    <div class="movie-item" data-index="${State.get('movies').indexOf(movie)}" style="animation-delay: ${index * 50}ms">
                         <h4>${movie.title}</h4>
                         <div class="meta">${movie.year} • ${movie.rating} • ${movie.director}</div>
                     </div>
@@ -498,8 +498,8 @@
             // Render filtered people
             renderFilteredPeople: (people) => {
                 const container = document.getElementById('people-list');
-                container.innerHTML = people.map(([name, data]) => `
-                    <div class="person-item" data-name="${name}">
+                container.innerHTML = people.map(([name, data], index) => `
+                    <div class="person-item" data-name="${name}" style="animation-delay: ${index * 50}ms">
                         <h4>${name}</h4>
                         <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
                     </div>
