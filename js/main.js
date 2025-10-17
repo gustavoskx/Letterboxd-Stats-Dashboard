@@ -22,7 +22,7 @@
     // ========================================
     const State = (function() {
         let state = {
-            tmdbApiKey: null,
+            tmdbApiKey: API_CONFIG.TMDB_API_KEY,
             movies: [],
             directors: new Map(),
             actors: new Map(),
@@ -167,16 +167,14 @@
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     
-                    const apiKey = document.getElementById('tmdb-api-key').value;
                     const fileInput = document.getElementById('csv-file');
                     
-                    if (!apiKey || !fileInput.files[0]) {
+                    if (!fileInput.files[0]) {
                         alert('Por favor, preencha todos os campos');
                         return;
                     }
 
                     try {
-                        State.set('tmdbApiKey', apiKey);
                         await Data.processCSV(fileInput.files[0]);
                         UI.showMainApp();
                         App.initialize();
