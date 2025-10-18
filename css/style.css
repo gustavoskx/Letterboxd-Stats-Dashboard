@@ -988,3 +988,60 @@ footer a {
 footer a:hover {
     text-decoration: underline;
 }
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background-color: var(--surface-color);
+    color: var(--primary-text-color);
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    border-left: 5px solid var(--accent-color);
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fade-in-up 0.5s forwards;
+}
+
+.toast.error {
+    border-left-color: #ff4d4d;
+}
+
+.toast.success {
+    border-left-color: #4caf50;
+}
+
+.toast.fade-out {
+    animation: fade-out 0.5s forwards;
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}

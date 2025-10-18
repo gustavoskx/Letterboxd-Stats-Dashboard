@@ -161,6 +161,27 @@
                 modal.classList.remove('show');
             },
 
+            showToast: (message, type = 'error', duration = 5000) => {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+
+                container.appendChild(toast);
+
+                // Fade out and remove
+                setTimeout(() => {
+                    toast.classList.add('fade-out');
+                    toast.addEventListener('animationend', () => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    });
+                }, duration - 500);
+            },
+
             // Setup form
             setupForm: () => {
                 const form = document.getElementById('setup-form');
@@ -170,7 +191,7 @@
                     const fileInput = document.getElementById('csv-file');
                     
                     if (!fileInput.files[0]) {
-                        alert('Por favor, preencha todos os campos');
+                        UI.showToast('Por favor, selecione um ficheiro CSV.');
                         return;
                     }
 
@@ -179,7 +200,7 @@
                         UI.showMainApp();
                         App.initialize();
                     } catch (error) {
-                        alert('Erro ao processar arquivo: ' + error.message);
+                        UI.showToast('Erro ao processar o ficheiro: ' + error.message);
                     }
                 });
             },
