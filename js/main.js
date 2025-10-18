@@ -906,6 +906,15 @@
 
                 // Hide loading message
                 UI.hideLoadingMessage();
+
+                // Save processed data to localStorage for session persistence
+                try {
+                    localStorage.setItem('letterboxdProcessedData', JSON.stringify(processedMovies));
+                    console.log('Dados dos filmes guardados no localStorage.');
+                } catch (e) {
+                    console.error('Erro ao guardar dados no localStorage:', e);
+                    UI.showToast('Não foi possível guardar a sessão. O limite de armazenamento pode ter sido excedido.', 'error', 7000);
+                }
                 
                 console.log('Estado atualizado, dados disponíveis:', State.get('directors').size);
             },
@@ -1630,9 +1639,36 @@
     const App = (function() {
         return {
             init: async () => {
+                // Attempt to load data from localStorage first
+                const storedData = localStorage.getItem('letterboxdProcessedData');
+                if (storedData) {
+                    try {
+                        const parsedData = JSON.parse(storedData);
+                        if (Array.isArray(parsedData) && parsedData.length > 0) {
+                            console.log('Dados encontrados no localStorage, a carregar sessão.');
+                            State.update({ movies: parsedData });
+                            
+                            // Setup listeners and initialize main app
+                            UI.setupNavigation();
+                            UI.setupChartContainers();
+                            UI.setupModalClose();
+                            UI.setupSearch();
+                            UI.setupPeopleFilter();
+                            
+                            UI.showMainApp();
+                            App.initialize();
+                            return; // Stop execution to prevent showing setup
+                        }
+                    } catch (error) {
+                        console.error('Erro ao analisar dados do localStorage, a limpar.', error);
+                        localStorage.removeItem('letterboxdProcessedData');
+                    }
+                }
+
+                // If no valid stored data, show the setup screen
                 UI.showSetup();
 
-                // Setup event listeners
+                // Setup event listeners for the first time
                 UI.setupForm();
                 UI.setupNavigation();
                 UI.setupChartContainers();
