@@ -119,7 +119,21 @@
             },
 
             // Modal management
-            showModal: (title, chartType, chartData) => {
+            showModal: (modalId) => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.add('show');
+                }
+            },
+
+            hideModal: (modalId) => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.remove('show');
+                }
+            },
+
+            showChartModal: (title, chartType, chartData) => {
                 const modal = document.getElementById('chart-modal-view');
                 const modalBody = modal.querySelector('.modal-body');
                 modalBody.innerHTML = originalModalBodyHTML;
@@ -154,11 +168,6 @@
                 // Clear any existing chart and show summary content in a scrollable container
                 modalBody.innerHTML = `<div class=\"summary-details-grid\" style=\"flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 30px; overflow-y: auto; align-content: start;\">${content}</div>`;
                 modal.classList.add('show');
-            },
-
-            hideModal: () => {
-                const modal = document.getElementById('chart-modal-view');
-                modal.classList.remove('show');
             },
 
             showToast: (message, type = 'error', duration = 5000) => {
@@ -238,7 +247,7 @@
                         // Get chart data from Charts module
                         const chartData = Charts.getChartData(chartType);
                         if (chartData) {
-                            UI.showModal(title, chartType, chartData);
+                            UI.showChartModal(title, chartType, chartData);
                         } else {
                             console.warn(`No chart data found for type: ${chartType}`);
                         }
@@ -248,11 +257,20 @@
 
             // Modal close setup
             setupModalClose: () => {
-                document.querySelector('.modal-close').addEventListener('click', UI.hideModal);
-                document.getElementById('chart-modal-view').addEventListener('click', (e) => {
-                    if (e.target.id === 'chart-modal-view') {
-                        UI.hideModal();
-                    }
+                document.querySelectorAll('.modal-close').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const modal = e.target.closest('.modal');
+                        if (modal) {
+                            UI.hideModal(modal.id);
+                        }
+                    });
+                });
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('modal')) {
+                            UI.hideModal(modal.id);
+                        }
+                    });
                 });
             },
 
@@ -640,6 +658,68 @@
                 }
             },
 
+            // Advanced filter modal
+            setupAdvancedFilterModal: () => {
+                const filterBtn = document.getElementById('advanced-filter-btn');
+                const modal = document.getElementById('advanced-filter-modal');
+                const form = document.getElementById('filter-form');
+                const clearBtn = document.getElementById('clear-filters-btn');
+
+                if (!filterBtn || !modal || !form || !clearBtn) return;
+
+                filterBtn.addEventListener('click', () => {
+                    UI.populateFilterOptions();
+                    UI.showModal('advanced-filter-modal');
+                });
+
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    Data.applyAdvancedFilters();
+                    UI.hideModal('advanced-filter-modal');
+                });
+
+                clearBtn.addEventListener('click', () => {
+                    form.reset();
+                    Data.applyAdvancedFilters();
+                });
+            },
+
+            populateFilterOptions: () => {
+                const movies = State.get('movies');
+                const genreSelect = document.getElementById('filter-genre');
+                const decadeSelect = document.getElementById('filter-decade');
+
+                if (!movies.length || !genreSelect || !decadeSelect) return;
+
+                const genres = new Set();
+                const decades = new Set();
+
+                movies.forEach(movie => {
+                    movie.genres.forEach(genre => genres.add(genre));
+                    if (movie.year) {
+                        const decade = Math.floor(movie.year / 10) * 10;
+                        decades.add(decade);
+                    }
+                });
+
+                // Populate genres
+                genreSelect.innerHTML = '<option value="">Todos</option>';
+                [...genres].sort().forEach(genre => {
+                    const option = document.createElement('option');
+                    option.value = genre;
+                    option.textContent = genre;
+                    genreSelect.appendChild(option);
+                });
+
+                // Populate decades
+                decadeSelect.innerHTML = '<option value="">Todas</option>';
+                [...decades].sort((a, b) => b - a).forEach(decade => {
+                    const option = document.createElement('option');
+                    option.value = decade;
+                    option.textContent = `${decade}s`;
+                    decadeSelect.appendChild(option);
+                });
+            },
         };
     })();
 
@@ -988,6 +1068,29 @@
                         sortedMovies
                     }
                 });
+            },
+
+            applyAdvancedFilters: () => {
+                const movies = State.get('movies');
+                const genre = document.getElementById('filter-genre').value;
+                const decade = document.getElementById('filter-decade').value;
+                const minRating = parseFloat(document.getElementById('filter-min-rating').value) || 0;
+                const maxRating = parseFloat(document.getElementById('filter-max-rating').value) || 5;
+                const minDuration = parseInt(document.getElementById('filter-min-duration').value) || 0;
+                const maxDuration = parseInt(document.getElementById('filter-max-duration').value) || Infinity;
+
+                const filteredMovies = movies.filter(movie => {
+                    const movieDecade = Math.floor(movie.year / 10) * 10;
+
+                    return (
+                        (genre ? movie.genres.includes(genre) : true) &&
+                        (decade ? movieDecade === parseInt(decade) : true) &&
+                        (movie.rating >= minRating && movie.rating <= maxRating) &&
+                        (movie.runtime >= minDuration && movie.runtime <= maxDuration)
+                    );
+                });
+
+                UI.renderFilteredMovies(filteredMovies);
             },
 
             getChartDetails: (chartType) => {
@@ -1696,6 +1799,7 @@
                             UI.setupPeopleFilter();
                             UI.setupResetButton();
                             UI.setupAboutButton();
+                            UI.setupAdvancedFilterModal();
                             
                             UI.showMainApp();
                             App.initialize();
@@ -1719,6 +1823,7 @@
                 UI.setupPeopleFilter();
                 UI.setupResetButton();
                 UI.setupAboutButton();
+                UI.setupAdvancedFilterModal();
             },
 
             initialize: () => {
