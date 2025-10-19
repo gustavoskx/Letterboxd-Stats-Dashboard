@@ -252,10 +252,11 @@ body {
     border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
+    animation: fadeInUp 0.5s ease forwards;
 }
 
 .highlight-card h3 {
-    color: var(--accent-color);
+    color: var(--primary-text-color);
     margin-bottom: 15px;
     font-size: 1.2em;
     flex-shrink: 0;
