@@ -70,12 +70,12 @@
     // ========================================
     const UI = (function() {
         const originalModalBodyHTML = `
-            <div class=\"modal-chart-container\">
-                <canvas id=\"modal-chart\"></canvas>
+            <div class="modal-chart-container">
+                <canvas id="modal-chart"></canvas>
             </div>
-            <div class=\"modal-details-container\">
+            <div class="modal-details-container">
                 <h3>Detalhes</h3>
-                <div id=\"modal-chart-details\"></div>
+                <div id="modal-chart-details"></div>
             </div>
         `;
 
@@ -110,7 +110,7 @@
                     tab.classList.remove('active');
                 });
                 
-                const activeTab = document.querySelector(`[data-view=\"${viewName}\"]`);
+                const activeTab = document.querySelector(`[data-view="${viewName}"]`);
                 if (activeTab) {
                     activeTab.classList.add('active');
                 }
@@ -166,7 +166,7 @@
                 titleEl.textContent = title;
 
                 // Clear any existing chart and show summary content in a scrollable container
-                modalBody.innerHTML = `<div class=\"summary-details-grid\" style=\"flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 30px; overflow-y: auto; align-content: start;\">${content}</div>`;
+                modalBody.innerHTML = `<div class="summary-details-grid" style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 30px; overflow-y: auto; align-content: start;">${content}</div>`;
                 modal.classList.add('show');
             },
 
@@ -230,6 +230,16 @@
                 });
             },
 
+            setupHomeButton: () => {
+                const homeBtn = document.getElementById('home-btn');
+                if (homeBtn) {
+                    homeBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        UI.showView('dashboard');
+                    });
+                }
+            },
+
             // Chart containers setup
             setupChartContainers: () => {
                 document.querySelectorAll('.chart-container').forEach(container => {
@@ -280,9 +290,9 @@
                 const container = document.getElementById('movies-list');
                 
                 container.innerHTML = movies.map((movie, index) => `
-                    <div class=\"movie-item\" data-index=\"${index}\" style=\"animation-delay: ${index * 50}ms\">
+                    <div class="movie-item" data-index="${index}" style="animation-delay: ${index * 50}ms">
                         <h4>${movie.title}</h4>
-                        <div class=\"meta\">${movie.year} • ${movie.rating} • ${movie.director}</div>
+                        <div class="meta">${movie.year} • ${movie.rating} • ${movie.director}</div>
                     </div>
                 `).join('');
 
@@ -310,23 +320,23 @@
                     `https://image.tmdb.org/t/p/w300${movie.posterPath}` : null;
                 
                 container.innerHTML = `
-                    <div class=\"movie-detail\">
-                        <div class=\"movie-header\">
-                            ${posterUrl ? `<img src=\"${posterUrl}\" alt=\"${movie.title}\" class=\"movie-poster\">` : ''}
-                            <div class=\"movie-info\">
+                    <div class="movie-detail">
+                        <div class="movie-header">
+                            ${posterUrl ? `<img src="${posterUrl}" alt="${movie.title}" class="movie-poster">` : ''}
+                            <div class="movie-info">
                                 <h3>${movie.title}</h3>
-                                <p class=\"movie-year\">(${movie.year})</p>
-                                <p class=\"movie-rating\">Sua nota: ${movie.rating}</p>
+                                <p class="movie-year">(${movie.year})</p>
+                                <p class="movie-rating">Sua nota: ${movie.rating}</p>
                             </div>
                         </div>
                         
-                        <div class=\"movie-meta\">
+                        <div class="movie-meta">
                             ${movie.director ? `<p><strong>Diretor:</strong> ${movie.director}</p>` : ''}
                             ${movie.runtime > 0 ? `<p><strong>Duração:</strong> ${movie.runtime} min</p>` : ''}
                             ${movie.genres.length > 0 ? `<p><strong>Gêneros:</strong> ${movie.genres.join(', ')}</p>` : ''}
                             ${movie.cast.length > 0 ? `<p><strong>Elenco:</strong> ${movie.cast.slice(0, 5).join(', ')}${movie.cast.length > 5 ? '...' : ''}</p>` : ''}
                             <p><strong>Assistido em:</strong> ${movie.dateWatched}</p>
-                            ${movie.overview ? `<div class=\"movie-overview\"><strong>Sinopse:</strong><p>${movie.overview}</p></div>` : ''}
+                            ${movie.overview ? `<div class="movie-overview"><strong>Sinopse:</strong><p>${movie.overview}</p></div>` : ''}
                         </div>
                     </div>
                 `;
@@ -339,7 +349,7 @@
                 const container = document.getElementById('people-list');
                 
                 if (!peopleMap || peopleMap.size === 0) {
-                    container.innerHTML = '<div class=\"placeholder\"><p>Nenhuma pessoa encontrada</p></div>';
+                    container.innerHTML = '<div class="placeholder"><p>Nenhuma pessoa encontrada</p></div>';
                     return;
                 }
                 
@@ -347,9 +357,9 @@
                     .sort((a, b) => b[1].count - a[1].count);
                 
                 container.innerHTML = people.map(([name, data], index) => `
-                    <div class=\"person-item\" data-name=\"${name}\" style=\"animation-delay: ${index * 50}ms\">
+                    <div class="person-item" data-name="${name}" style="animation-delay: ${index * 50}ms">
                         <h4>${name}</h4>
-                        <div class=\"meta\">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
+                        <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
                     </div>
                 `).join('');
 
@@ -375,7 +385,7 @@
                 const personMovies = (data.movies || []).sort((a, b) => b.rating - a.rating);
 
                 if (personMovies.length === 0) {
-                    container.innerHTML = '<div class=\"placeholder\"><p>Nenhum filme encontrado para esta pessoa.</p></div>';
+                    container.innerHTML = '<div class="placeholder"><p>Nenhum filme encontrado para esta pessoa.</p></div>';
                     return;
                 }
 
@@ -390,55 +400,55 @@
                 });
 
                 container.innerHTML = `
-                    <div class=\"person-stats\">
+                    <div class="person-stats">
                         <h3>${name}</h3>
                         
-                        <div class=\"stats-cards\">
-                            <div class=\"stat-card\">
+                        <div class="stats-cards">
+                            <div class="stat-card">
                                 <h4>Total de Filmes</h4>
-                                <div class=\"value\">${data.count}</div>
+                                <div class="value">${data.count}</div>
                             </div>
-                            <div class=\"stat-card\">
+                            <div class="stat-card">
                                 <h4>Nota Média</h4>
-                                <div class=\"value\">${data.averageRating.toFixed(1)}</div>
+                                <div class="value">${data.averageRating.toFixed(1)}</div>
                             </div>
-                            <div class=\"stat-card\">
+                            <div class="stat-card">
                                 <h4>Primeiro Filme</h4>
-                                <div class=\"value\">${data.firstMovie.year}</div>
+                                <div class="value">${data.firstMovie.year}</div>
                             </div>
-                            <div class=\"stat-card\">
+                            <div class="stat-card">
                                 <h4>Último Filme</h4>
-                                <div class=\"value\">${data.lastMovie.year}</div>
+                                <div class="value">${data.lastMovie.year}</div>
                             </div>
                         </div>
 
-                        <div class=\"best-worst\">
-                            <div class=\"best-worst-item\">
+                        <div class="best-worst">
+                            <div class="best-worst-item">
                                 <h4>Melhor Filme</h4>
                                 <p>${bestMovie.title} (${bestMovie.year})</p>
                                 <p>${bestMovie.rating}</p>
                             </div>
-                            <div class=\"best-worst-item\">
+                            <div class="best-worst-item">
                                 <h4>Pior Filme</h4>
                                 <p>${worstMovie.title} (${worstMovie.year})</p>
                                 <p>${worstMovie.rating}</p>
                             </div>
                         </div>
 
-                        <div class=\"mini-chart\">
+                        <div class="mini-chart">
                             <h4>Distribuição de Notas</h4>
-                            <canvas id=\"person-rating-chart\" width=\"300\" height=\"150\"></canvas>
+                            <canvas id="person-rating-chart" width="300" height="150"></canvas>
                         </div>
 
-                        <div class=\"filmography\">
+                        <div class="filmography">
                             <h4>Filmografia</h4>
                             ${personMovies.map(movie => `
-                                <div class=\"film-item\">
+                                <div class="film-item">
                                     <div>
-                                        <span class=\"title\">${movie.title}</span>
-                                        <span class=\"year\">(${movie.year})</span>
+                                        <span class="title">${movie.title}</span>
+                                        <span class="year">(${movie.year})</span>
                                     </div>
-                                    <span class=\"rating\">${movie.rating}</span>
+                                    <span class="rating">${movie.rating}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -511,9 +521,9 @@
             renderFilteredMovies: (movies) => {
                 const container = document.getElementById('movies-list');
                 container.innerHTML = movies.map((movie, index) => `
-                    <div class=\"movie-item\" data-index=\"${State.get('movies').indexOf(movie)}\" style=\"animation-delay: ${index * 50}ms\">
+                    <div class="movie-item" data-index="${State.get('movies').indexOf(movie)}" style="animation-delay: ${index * 50}ms">
                         <h4>${movie.title}</h4>
-                        <div class=\"meta\">${movie.year} • ${movie.rating} • ${movie.director}</div>
+                        <div class="meta">${movie.year} • ${movie.rating} • ${movie.director}</div>
                     </div>
                 `).join('');
 
@@ -536,9 +546,9 @@
             renderFilteredPeople: (people) => {
                 const container = document.getElementById('people-list');
                 container.innerHTML = people.map(([name, data], index) => `
-                    <div class=\"person-item\" data-name=\"${name}\" style=\"animation-delay: ${index * 50}ms\">
+                    <div class="person-item" data-name="${name}" style="animation-delay: ${index * 50}ms">
                         <h4>${name}</h4>
-                        <div class=\"meta\">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
+                        <div class="meta">${data.count} filmes • Nota média: ${data.averageRating.toFixed(1)}</div>
                     </div>
                 `).join('');
 
@@ -593,22 +603,22 @@
                 if (!btn) return;
                 btn.addEventListener('click', () => {
                     const aboutContentHtml = `
-                        <div class=\"summary-section\" style=\"grid-column: 1 / -1;\">
+                        <div class="summary-section" style="grid-column: 1 / -1;">
                             <h3>O Que é Isto?</h3>
                             <p>O Letterboxd Stats Dashboard é uma ferramenta para visualizar as suas estatísticas de filmes a partir dos dados que exporta do Letterboxd.</p>
                         </div>
-                        <div class=\"summary-section\" style=\"grid-column: 1 / -1;\">
+                        <div class="summary-section" style="grid-column: 1 / -1;">
                             <h3>Como Usar</h3>
                             <p>1. Vá ao seu perfil Letterboxd, clique no ícone de engrenagem (Definições) e vá para a aba 'Dados'.</p>
                             <p>2. Clique em 'Exportar os seus dados' e aguarde o email com o link para o zip.</p>
                             <p>3. Descomprima o ficheiro e encontre o <strong>ratings.csv</strong>.</p>
                             <p>4. Arraste e solte ou selecione esse ficheiro na tela inicial desta aplicação.</p>
                         </div>
-                        <div class=\"summary-section\" style=\"grid-column: 1 / -1;\">
+                        <div class="summary-section" style="grid-column: 1 / -1;">
                             <h3>Créditos</h3>
-                            <p>Dados dos filmes fornecidos pela <a href=\"https://www.themoviedb.org/\" target=\"_blank\" rel=\"noopener noreferrer\">The Movie Database (TMDB)</a>.</p>
-                            <p>Gráficos criados com <a href=\"https://www.chartjs.org/\" target=\"_blank\" rel=\"noopener noreferrer\">Chart.js</a>.</p>
-                            <p>Desenvolvido por <a href=\"https://github.com/gustavoskx\" target=\"_blank\" rel=\"noopener noreferrer\">gustavoskx</a>.</p>
+                            <p>Dados dos filmes fornecidos pela <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">The Movie Database (TMDB)</a>.</p>
+                            <p>Gráficos criados com <a href="https://www.chartjs.org/" target="_blank" rel="noopener noreferrer">Chart.js</a>.</p>
+                            <p>Desenvolvido por <a href="https://github.com/gustavoskx" target="_blank" rel="noopener noreferrer">gustavoskx</a>.</p>
                         </div>
                     `;
                     UI.showSummaryModal('Sobre o Projeto', aboutContentHtml);
@@ -627,13 +637,13 @@
                 const loader = document.createElement('div');
                 loader.className = 'loading-overlay';
                 loader.innerHTML = `
-                    <div class=\"loading-content\">
-                        <div class=\"loading-spinner\"></div>
+                    <div class="loading-content">
+                        <div class="loading-spinner"></div>
                         <h3>${message}</h3>
-                        <div class=\"progress-bar\">
-                            <div class=\"progress-fill\" id=\"progress-fill\"></div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
                         </div>
-                        <p id=\"progress-text\">Preparando...</p>
+                        <p id="progress-text">Preparando...</p>
                     </div>
                 `;
                 
@@ -720,6 +730,83 @@
                     decadeSelect.appendChild(option);
                 });
             },
+
+            renderHighlights: async () => {
+                await UI.renderFavoritesPodium();
+                await UI.renderActorSpotlight();
+                await UI.renderDirectorSpotlight();
+            },
+
+            renderFavoritesPodium: async () => {
+                const container = document.querySelector('#favorites-podium .podium-content');
+                if (!container) return;
+
+                const topMovies = Data.getTopRatedMovies(3);
+                if (!topMovies.length) {
+                    container.innerHTML = '<p class="placeholder">Sem filmes para exibir.</p>';
+                    return;
+                }
+
+                const podiumOrder = [1, 0, 2]; // [2nd, 1st, 3rd]
+                const podiumHTML = podiumOrder.map(index => {
+                    const movie = topMovies[index];
+                    if (!movie) return '';
+                    const posterUrl = movie.posterPath ? `https://image.tmdb.org/t/p/w154${movie.posterPath}` : '';
+                    return `
+                        <div class="podium-item ${index === 0 ? 'first' : ''}">
+                            <img src="${posterUrl}" alt="${movie.title}">
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML = podiumHTML;
+            },
+
+            renderActorSpotlight: async () => {
+                const container = document.querySelector('#person-spotlight .spotlight-content');
+                if (!container) return;
+
+                const person = Data.getMostWatchedActor();
+                if (!person) {
+                    container.innerHTML = '<p class="placeholder">Sem dados de ator.</p>';
+                    return;
+                }
+
+                const personDetails = await API.searchPerson(person.name);
+                const profileUrl = personDetails && personDetails.profile_path ? `https://image.tmdb.org/t/p/w185${personDetails.profile_path}` : './images/favicon.svg';
+
+                container.innerHTML = `
+                    <img src="${profileUrl}" alt="${person.name}">
+                    <div class="spotlight-info">
+                        <h4>${person.name}</h4>
+                        <p><strong>${person.data.count}</strong> filmes assistidos</p>
+                        <p>Nota média: <strong>${person.data.averageRating.toFixed(1)}</strong></p>
+                    </div>
+                `;
+            },
+
+            renderDirectorSpotlight: async () => {
+                const container = document.querySelector('#director-spotlight .spotlight-content');
+                if (!container) return;
+
+                const person = Data.getMostWatchedDirector();
+                if (!person) {
+                    container.innerHTML = '<p class="placeholder">Sem dados de diretor.</p>';
+                    return;
+                }
+
+                const personDetails = await API.searchPerson(person.name);
+                const profileUrl = personDetails && personDetails.profile_path ? `https://image.tmdb.org/t/p/w185${personDetails.profile_path}` : './images/favicon.svg';
+
+                container.innerHTML = `
+                    <img src="${profileUrl}" alt="${person.name}">
+                    <div class="spotlight-info">
+                        <h4>${person.name}</h4>
+                        <p><strong>${person.data.count}</strong> filmes assistidos</p>
+                        <p>Nota média: <strong>${person.data.averageRating.toFixed(1)}</strong></p>
+                    </div>
+                `;
+            },
         };
     })();
 
@@ -755,7 +842,21 @@
                     console.error('Erro ao obter detalhes do filme:', error);
                     return null;
                 }
-            }
+            },
+
+            searchPerson: async (name) => {
+                const apiKey = State.get('tmdbApiKey');
+                const url = `${baseURL}/search/person?api_key=${apiKey}&query=${encodeURIComponent(name)}`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    return data.results[0] || null;
+                } catch (error) {
+                    console.error('Erro na busca da pessoa:', error);
+                    return null;
+                }
+            },
         };
     })();
 
@@ -767,7 +868,7 @@
         const generateListHTML = (items, title) => {
             if (!items || items.length === 0) return '';
             return `
-                <div class=\"detail-item\">
+                <div class="detail-item">
                     <h4>${title}</h4>
                     <ul>
                         ${items.map(item => `<li>${item}</li>`).join('')}
@@ -1093,6 +1194,29 @@
                 UI.renderFilteredMovies(filteredMovies);
             },
 
+            getTopRatedMovies: (count = 3) => {
+                const movies = State.get('movies');
+                return [...movies]
+                    .sort((a, b) => b.rating - a.rating)
+                    .slice(0, count);
+            },
+
+            getMostWatchedActor: () => {
+                const actors = State.get('actors');
+                if (!actors || actors.size === 0) return null;
+
+                const topActor = Array.from(actors.entries()).sort((a, b) => b[1].count - a[1].count)[0];
+                return { name: topActor[0], data: topActor[1] };
+            },
+
+            getMostWatchedDirector: () => {
+                const directors = State.get('directors');
+                if (!directors || directors.size === 0) return null;
+
+                const topDirector = Array.from(directors.entries()).sort((a, b) => b[1].count - a[1].count)[0];
+                return { name: topDirector[0], data: topDirector[1] };
+            },
+
             getChartDetails: (chartType) => {
                 const movies = State.get('movies');
                 let html = '';
@@ -1119,44 +1243,44 @@
 
                         // Total de Filmes
                         summaryHtml += `
-                            <div class=\"summary-item\">
-                                <h4 class=\"summary-item-title\">Total de Filmes</h4>
-                                <p class=\"summary-item-value\">${totalMovies}</p>
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Total de Filmes</h4>
+                                <p class="summary-item-value">${totalMovies}</p>
                             </div>
                         `;
 
                         // Nota Média
                         summaryHtml += `
-                            <div class=\"summary-item\">
-                                <h4 class=\"summary-item-title\">Nota Média</h4>
-                                <p class=\"summary-item-value\">${averageRating.toFixed(2)}</p>
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Nota Média</h4>
+                                <p class="summary-item-value">${averageRating.toFixed(2)}</p>
                             </div>
                         `;
 
                         // Tempo Total Assistido
                         summaryHtml += `
-                            <div class=\"summary-item\">
-                                <h4 class=\"summary-item-title\">Tempo Total Assistido</h4>
-                                <p class=\"summary-item-value\">${Math.floor(totalRuntime / 60)}h ${totalRuntime % 60}m</p>
+                            <div class="summary-item">
+                                <h4 class="summary-item-title">Tempo Total Assistido</h4>
+                                <p class="summary-item-value">${Math.floor(totalRuntime / 60)}h ${totalRuntime % 60}m</p>
                             </div>
                         `;
 
                         // Primeiro Filme
                         if (firstMovie) {
                             summaryHtml += `
-                                <div class=\"summary-item\">
-                                    <h4 class=\"summary-item-title\">Primeiro Filme</h4>
-                                    <p class=\"summary-item-value\">${firstMovie.title} (${firstMovie.year}) - ${firstMovie.dateWatched}</p>
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Primeiro Filme</h4>
+                                    <p class="summary-item-value">${firstMovie.title} (${firstMovie.year}) - ${firstMovie.dateWatched}</p>
                                 </div>
                             `;
                         }
 
                         // Último Filme
                         if (lastMovie) {
-                            summaryHtml += `
-                                <div class=\"summary-item\">
-                                    <h4 class=\"summary-item-title\">Último Filme</h4>
-                                    <p class=\"summary-item-value\">${lastMovie.title} (${lastMovie.year}) - ${lastMovie.dateWatched}</p>
+                             summaryHtml += `
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Último Filme</h4>
+                                    <p class="summary-item-value">${lastMovie.title} (${lastMovie.year}) - ${lastMovie.dateWatched}</p>
                                 </div>
                             `;
                         }
@@ -1164,9 +1288,9 @@
                         // Melhor(es) Filme(s)
                         if (highestRated.length > 0) {
                             summaryHtml += `
-                                <div class=\"summary-item\">
-                                    <h4 class=\"summary-item-title\">Melhor(es) Filme(s) (${maxRating.toFixed(1)})</h4>
-                                    <div class=\"summary-item-value\">
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Melhor(es) Filme(s) (${maxRating.toFixed(1)})</h4>
+                                    <div class="summary-item-value">
                                         <ul>
                                             ${highestRated.map(m => `<li>${m.title}</li>`).join('')}
                                         </ul>
@@ -1178,9 +1302,9 @@
                         // Pior(es) Filme(s)
                         if (lowestRated.length > 0) {
                              summaryHtml += `
-                                <div class=\"summary-item\">
-                                    <h4 class=\"summary-item-title\">Pior(es) Filme(s) (${minRating.toFixed(1)})</h4>
-                                    <div class=\"summary-item-value\">
+                                <div class="summary-item">
+                                    <h4 class="summary-item-title">Pior(es) Filme(s) (${minRating.toFixed(1)})</h4>
+                                    <div class="summary-item-value">
                                         <ul>
                                             ${lowestRated.map(m => `<li>${m.title}</li>`).join('')}
                                         </ul>
@@ -1219,7 +1343,7 @@
                         const highestRated = movies.filter(m => m.rating === 5.0).map(m => `${m.title} (${m.year})`);
                         const lowestRated = movies.filter(m => m.rating === Math.min(...ratings)).map(m => `${m.title} (${m.year})`);
 
-                        html += `<div class=\"detail-item\"><h4>Estatísticas Chave</h4><ul>
+                        html += `<div class="detail-item"><h4>Estatísticas Chave</h4><ul>
                             <li><strong>Média:</strong> ${mean.toFixed(2)}</li>
                             <li><strong>Mediana:</strong> ${median.toFixed(1)}</li>
                             <li><strong>Moda:</strong> ${modes.join(', ')}</li>
@@ -1236,7 +1360,7 @@
                         const peopleMap = State.get(chartType);
                         const sortedPeople = Array.from(peopleMap.entries()).sort((a, b) => b[1].count - a[1].count);
 
-                        html += `<div class=\"detail-item\"><h4>Resumo</h4><ul>
+                        html += `<div class="detail-item"><h4>Resumo</h4><ul>
                             <li><strong>Total de ${personType}:</strong> ${peopleMap.size}</li>
                         </ul></div>`;
 
@@ -1255,10 +1379,10 @@
                         const bestInGenre = genreMovies.reduce((best, movie) => movie.rating > best.rating ? movie : best, genreMovies[0]);
                         const worstInGenre = genreMovies.reduce((worst, movie) => movie.rating < worst.rating ? movie : worst, genreMovies[0]);
 
-                        html += `<div class=\"detail-item\"><h4>Gênero Favorito</h4><ul>
+                        html += `<div class="detail-item"><h4>Gênero Favorito</h4><ul>
                             <li><strong>${favoriteGenre}</strong> (${sortedGenres[0][1].count} filmes)</li>
                         </ul></div>`;
-                        html += `<div class=\"detail-item\"><h4>Melhor & Pior de ${favoriteGenre}</h4><ul>
+                        html += `<div class="detail-item"><h4>Melhor & Pior de ${favoriteGenre}</h4><ul>
                             <li><strong>Melhor:</strong> ${bestInGenre.title} (${bestInGenre.rating})</li>
                             <li><strong>Pior:</strong> ${worstInGenre.title} (${worstInGenre.rating})</li>
                         </ul></div>`;
@@ -1292,11 +1416,11 @@
                         const bestYear = yearAverages.reduce((best, year) => year.avg > best.avg ? year : best, { avg: 0 });
                         const worstYear = yearAverages.reduce((worst, year) => year.avg < worst.avg ? year : worst, { avg: 6 });
 
-                        html += `<div class=\"detail-item\"><h4>Melhor Ano</h4><ul>
+                        html += `<div class="detail-item"><h4>Melhor Ano</h4><ul>
                             <li><strong>${bestYear.year}</strong> (Média ${bestYear.avg.toFixed(2)})</li>
                             ${bestYear.movies.slice(0, 3).map(m => `<li>- ${m.title} (${m.rating})</li>`).join('')}
                         </ul></div>`;
-                        html += `<div class=\"detail-item\"><h4>Pior Ano</h4><ul>
+                        html += `<div class="detail-item"><h4>Pior Ano</h4><ul>
                             <li><strong>${worstYear.year}</strong> (Média ${worstYear.avg.toFixed(2)})</li>
                         </ul></div>`;
 
@@ -1314,10 +1438,10 @@
                         const longestMovie = moviesWithRuntime.reduce((longest, movie) => movie.runtime > longest.runtime ? movie : longest, { runtime: 0 });
                         const shortestMovie = moviesWithRuntime.reduce((shortest, movie) => movie.runtime < shortest.runtime ? movie : shortest, { runtime: Infinity });
 
-                        html += `<div class=\"detail-item\"><h4>Estatísticas de Duração</h4><ul>
+                        html += `<div class="detail-item"><h4>Estatísticas de Duração</h4><ul>
                             <li><strong>Média:</strong> ${Math.round(avgRuntime)} min (${Math.floor(avgRuntime / 60)}h ${Math.round(avgRuntime % 60)}m)</li>
                         </ul></div>`;
-                        html += `<div class=\"detail-item\"><h4>Extremos</h4><ul>
+                        html += `<div class="detail-item"><h4>Extremos</h4><ul>
                             <li><strong>Mais Longo:</strong> ${longestMovie.title} (${longestMovie.runtime} min)</li>
                             <li><strong>Mais Curto:</strong> ${shortestMovie.title} (${shortestMovie.runtime} min)</li>
                         </ul></div>`;
@@ -1375,21 +1499,21 @@
 
                 const container = document.getElementById('summary-chart');
                 container.innerHTML = `
-                    <div class=\"summary-card\">
+                    <div class="summary-card">
                         <h4>Total de Filmes</h4>
-                        <div class=\"value\">${stats.totalMovies}</div>
+                        <div class="value">${stats.totalMovies}</div>
                     </div>
-                    <div class=\"summary-card\">
+                    <div class="summary-card">
                         <h4>Nota Média</h4>
-                        <div class=\"value\">${stats.averageRating.toFixed(1)}</div>
+                        <div class="value">${stats.averageRating.toFixed(1)}</div>
                     </div>
-                    <div class=\"summary-card\">
+                    <div class="summary-card">
                         <h4>Tempo Total</h4>
-                        <div class=\"value\">${Math.round(stats.totalRuntime / 60)}h</div>
+                        <div class="value">${Math.round(stats.totalRuntime / 60)}h</div>
                     </div>
-                    <div class=\"summary-card\">
+                    <div class="summary-card">
                         <h4>Anos de Filmes</h4>
-                        <div class=\"value\">${stats.yearRange}</div>
+                        <div class="value">${stats.yearRange}</div>
                     </div>
                 `;
             },
@@ -1793,6 +1917,7 @@
                             
                             // Setup listeners and initialize main app
                             UI.setupNavigation();
+                            UI.setupHomeButton();
                             UI.setupChartContainers();
                             UI.setupModalClose();
                             UI.setupSearch();
@@ -1817,6 +1942,7 @@
                 // Setup event listeners for the first time
                 UI.setupForm();
                 UI.setupNavigation();
+                UI.setupHomeButton();
                 UI.setupChartContainers();
                 UI.setupModalClose();
                 UI.setupSearch();
@@ -1845,6 +1971,8 @@
                 Charts.destroyAll();
                 Charts.createAllCharts();
                 
+                // Render highlights
+                UI.renderHighlights();
                 
                 // Show dashboard by default
                 console.log('Mostrando dashboard...');
